@@ -36,6 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
 
 dev_dependencies:
+  flutter_launcher_icons: ^0.13.1
   flutter_test:
     sdk: flutter
 
@@ -50,6 +51,14 @@ dev_dependencies:
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/logo.png" # Ensure this path is correct
+  adaptive_icon_background: "#FFFFFF" # Required for newer Android versions
+  adaptive_icon_foreground: "assets/logo.png"
+
 flutter:
 
   # The following line ensures that the Material Icons font is
@@ -87,3 +96,4 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
