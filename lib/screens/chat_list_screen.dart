@@ -11,8 +11,8 @@ class ChatListScreen extends StatefulWidget {
 
 class _ChatListScreenState extends State<ChatListScreen>
     with SingleTickerProviderStateMixin {
-  // For wave dots typing animation
-  List<bool> _waveDots = [true, false, false];
+  // Wave dots animation for typing indicator
+  final List<bool> _waveDots = [true, false, false];
   Timer? _timer;
 
   @override
@@ -42,11 +42,38 @@ class _ChatListScreenState extends State<ChatListScreen>
           width: 6,
           height: _waveDots[i] ? 6 : 3,
           decoration: BoxDecoration(
-            color: Colors.grey.shade600,
+            color: Colors.teal.shade300,
             shape: BoxShape.circle,
           ),
         );
       }),
+    );
+  }
+
+  Widget buildPreviewBubble(
+    String text, {
+    bool isSent = false,
+    bool isTyping = false,
+  }) {
+    return Align(
+      alignment: isSent ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        margin: const EdgeInsets.only(top: 4),
+        decoration: BoxDecoration(
+          color: isSent ? const Color(0xFF00B8D4) : const Color(0xFFE6E9F0),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: isTyping
+            ? buildTypingIndicator()
+            : Text(
+                text,
+                style: TextStyle(
+                  color: isSent ? Colors.white : Colors.black87,
+                  fontSize: 14,
+                ),
+              ),
+      ),
     );
   }
 
@@ -56,6 +83,7 @@ class _ChatListScreenState extends State<ChatListScreen>
     String? time,
     bool isTyping = false,
     int unreadCount = 0,
+    bool lastMessageSent = false,
   }) {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
@@ -65,13 +93,13 @@ class _ChatListScreenState extends State<ChatListScreen>
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 100),
         padding: const EdgeInsets.all(14),
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: const EdgeInsets.only(bottom: 12, left: 12, right: 12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withOpacity(0.05),
               blurRadius: 12,
               offset: const Offset(0, 5),
             ),
@@ -82,7 +110,7 @@ class _ChatListScreenState extends State<ChatListScreen>
           children: [
             const CircleAvatar(
               radius: 24,
-              backgroundColor: Color(0xFF7B61FF),
+              backgroundColor: Color(0xFF00B8D4),
               child: Icon(Icons.person, color: Colors.white),
             ),
             const SizedBox(width: 12),
@@ -98,7 +126,7 @@ class _ChatListScreenState extends State<ChatListScreen>
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: Color(0xFF7B61FF),
+                          color: Color(0xFF00B8D4),
                         ),
                       ),
                       if (time != null)
@@ -112,63 +140,41 @@ class _ChatListScreenState extends State<ChatListScreen>
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF0F2F5),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            isTyping ? '' : (lastMessage ?? ''),
-                            style: const TextStyle(
-                              color: Colors.black87,
-                              fontSize: 14,
+                  buildPreviewBubble(
+                    isTyping ? '' : (lastMessage ?? ''),
+                    isSent: lastMessageSent,
+                    isTyping: isTyping,
+                  ),
+                  if (unreadCount > 0)
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00B8D4),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF00B8D4).withOpacity(0.4),
+                              blurRadius: 6,
+                              spreadRadius: 1,
                             ),
-                            overflow: TextOverflow.ellipsis,
+                          ],
+                        ),
+                        child: Text(
+                          unreadCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                      if (isTyping)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          margin: const EdgeInsets.only(left: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF0F2F5),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: buildTypingIndicator(),
-                        ),
-                      if (unreadCount > 0)
-                        Container(
-                          margin: const EdgeInsets.only(left: 6),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF7B61FF),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            unreadCount.toString(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                    ),
                 ],
               ),
             ),
@@ -181,18 +187,19 @@ class _ChatListScreenState extends State<ChatListScreen>
   Widget buildSearchBar() {
     return GestureDetector(
       onTap: () {
-        // Can navigate to a dedicated search screen
         Navigator.pushNamed(context, '/search');
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          gradient: const LinearGradient(
+            colors: [Color(0xFFF5F7FA), Color(0xFFE8EBF1)],
+          ),
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.teal.withOpacity(0.1),
               blurRadius: 10,
               offset: const Offset(0, 3),
             ),
@@ -215,53 +222,73 @@ class _ChatListScreenState extends State<ChatListScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        title: const Text(
-          "Chats",
-          style: TextStyle(
-            color: Color(0xFF7B61FF),
-            fontWeight: FontWeight.bold,
+      // Gradient background
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFF5F7FA), Color(0xFFE8EBF1)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
         ),
-        actions: [
-          IconButton(
-            onPressed: () {
-              Navigator.pushNamed(context, '/profile');
-            },
-            icon: const Icon(Icons.person, color: Color(0xFF7B61FF)),
+        child: SafeArea(
+          child: Column(
+            children: [
+              AppBar(
+                backgroundColor: Colors.white,
+                elevation: 2,
+                title: const Text(
+                  "Chats",
+                  style: TextStyle(
+                    color: Color(0xFF00B8D4),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                actions: [
+                  IconButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/profile');
+                    },
+                    icon: const Icon(Icons.person, color: Color(0xFF00B8D4)),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  children: [
+                    buildSearchBar(),
+                    buildChatItem(
+                      name: "Alex Morgan",
+                      lastMessage: "Hey, are you coming today?",
+                      time: "12:41",
+                      unreadCount: 2,
+                      lastMessageSent: false,
+                    ),
+                    buildChatItem(
+                      name: "Sarah Lee",
+                      lastMessage: "See you tomorrow!",
+                      time: "11:05",
+                      lastMessageSent: true,
+                    ),
+                    buildChatItem(
+                      name: "Dev Team",
+                      isTyping: true,
+                      time: "10:15",
+                      unreadCount: 3,
+                    ),
+                    buildChatItem(
+                      name: "John Doe",
+                      lastMessage: "Can you review the document?",
+                      time: "09:50",
+                      lastMessageSent: false,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        children: [
-          buildSearchBar(),
-          buildChatItem(
-            name: "Alex Morgan",
-            lastMessage: "Hey, are you coming today?",
-            time: "12:41",
-            unreadCount: 2,
-          ),
-          buildChatItem(
-            name: "Sarah Lee",
-            lastMessage: "See you tomorrow!",
-            time: "11:05",
-          ),
-          buildChatItem(
-            name: "Dev Team",
-            isTyping: true,
-            time: "10:15",
-            unreadCount: 3,
-          ),
-          buildChatItem(
-            name: "John Doe",
-            lastMessage: "Can you review the document?",
-            time: "09:50",
-          ),
-        ],
+        ),
       ),
     );
   }

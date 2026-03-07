@@ -11,7 +11,7 @@ import '../screens/verify_email_screen.dart';
 class AppRoutes {
   static Map<String, WidgetBuilder> routes = {
     '/': (context) => const SplashScreen(),
-    '/login': (context) => const LoginScreen(),
+    '/login': (context) => const FuturisticLoginScreen(),
     '/signup': (context) => const SignupScreen(),
     '/verify': (context) => const VerifyEmailScreen(),
     '/chats': (context) => const ChatListScreen(),
