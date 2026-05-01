@@ -1,9 +1,15 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
-  // ── Palette (matches ChatListScreen & ChatScreen) ─────────────────────────
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  // ── Palette ───────────────────────────────────────────────────────────────
   static const _indigo = Color(0xFF4F46E5);
   static const _violet = Color(0xFF7C3AED);
   static const _indigo100 = Color(0xFFE0E7FF);
@@ -15,7 +21,18 @@ class ProfileScreen extends StatelessWidget {
   static const _slateMid = Color(0xFF475569);
   static const _slateMuted = Color(0xFF94A3B8);
 
-  // ── Reusable blue-white card decoration ───────────────────────────────────
+  bool _isLoggingOut = false;
+
+  // ── Logout ────────────────────────────────────────────────────────────────
+  Future<void> _handleLogout() async {
+    setState(() => _isLoggingOut = true);
+    await FirebaseAuth.instance.signOut();
+    if (mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
+    }
+  }
+
+  // ── Reusable card decoration ──────────────────────────────────────────────
   static const BoxDecoration _blueCard = BoxDecoration(
     color: _cardSurface,
     borderRadius: BorderRadius.all(Radius.circular(20)),
@@ -91,7 +108,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  // ── Action pill button ────────────────────────────────────────────────────
+  // ── Pill button ───────────────────────────────────────────────────────────
   Widget _pillButton({
     required IconData icon,
     required String label,
@@ -255,7 +272,6 @@ class ProfileScreen extends StatelessWidget {
                           end: Alignment.bottomRight,
                         ),
                       ),
-                      // Subtle decorative circles
                       child: Stack(
                         children: [
                           Positioned(
@@ -302,7 +318,8 @@ class ProfileScreen extends StatelessWidget {
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
-                              border: Border.all(color: Colors.white, width: 3),
+                              border:
+                              Border.all(color: Colors.white, width: 3),
                               boxShadow: [
                                 BoxShadow(
                                   color: _indigo.withOpacity(0.35),
@@ -425,18 +442,17 @@ class ProfileScreen extends StatelessWidget {
                         color: _cardSurface,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: _indigo200, width: 1),
-                        boxShadow: [
+                        boxShadow: const [
                           BoxShadow(
-                            color: const Color(0x0F4F46E5),
+                            color: Color(0x0F4F46E5),
                             blurRadius: 18,
-                            offset: const Offset(0, 6),
+                            offset: Offset(0, 6),
                           ),
                         ],
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Violet left accent bar
                           Container(
                             width: 3,
                             height: 60,
@@ -566,8 +582,7 @@ class ProfileScreen extends StatelessWidget {
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(16),
-                            border:
-                            Border.all(color: _indigo200, width: 1),
+                            border: Border.all(color: _indigo200, width: 1),
                             boxShadow: [
                               BoxShadow(
                                 color: _indigo.withOpacity(0.12),
@@ -622,7 +637,7 @@ class ProfileScreen extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: GestureDetector(
-                      onTap: () => Navigator.pushNamed(context, '/login'),
+                      onTap: _isLoggingOut ? null : _handleLogout,
                       child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -641,18 +656,28 @@ class ProfileScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              Icons.logout_rounded,
-                              color: Colors.redAccent,
-                              size: 18,
-                            ),
-                            SizedBox(width: 8),
+                            if (_isLoggingOut)
+                              const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.redAccent,
+                                ),
+                              )
+                            else
+                              const Icon(
+                                Icons.logout_rounded,
+                                color: Colors.redAccent,
+                                size: 18,
+                              ),
+                            const SizedBox(width: 8),
                             Text(
-                              'Logout',
-                              style: TextStyle(
+                              _isLoggingOut ? 'Logging out...' : 'Logout',
+                              style: const TextStyle(
                                 color: Colors.redAccent,
                                 fontWeight: FontWeight.w700,
                                 fontSize: 14,
