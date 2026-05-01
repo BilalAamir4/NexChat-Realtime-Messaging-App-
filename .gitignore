@@ -43,3 +43,19 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Android
+android/app/google-services.json
+
+# Android specific
+local.properties
+.gradle/
+
+# Keystores
+*.jks
+*.keystore
+*.p12
+
+# OS Junk
+Thumbs.db
+Desktop.ini
