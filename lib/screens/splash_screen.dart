@@ -161,7 +161,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (!mounted) return;
 
     Navigator.of(context).pushReplacementNamed(
-      user != null ? AppRoutes.chat : AppRoutes.login,
+      user != null ? AppRoutes.dashboard : AppRoutes.login,
     );
   }
 
