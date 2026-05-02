@@ -1,30 +1,39 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
-// ── NexChat Dashboard Screen ──────────────────────────────────────────────────
-// Landing screen after splash. Shows overview of Chats and Group Chats.
-// No bottom nav — the two section cards serve as navigation.
-// Drawer is inherited from ChatListScreen pattern.
-// AppBar title "NexChat" is tappable (no-op here, already on dashboard).
-// ChatListScreen/GroupChatScreen titles are tappable → pop back to dashboard.
-// ─────────────────────────────────────────────────────────────────────────────
+import '../features/chat/models/chat_model.dart';
+import '../features/chat/providers/chat_provider.dart';
+import '../features/auth/providers/auth_provider.dart';
+import '../routes/app_routes.dart';
 
-class DashboardScreen extends StatelessWidget {
+// ── Changed: StatefulWidget → ConsumerStatefulWidget ─────────────────────────
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
-  // ── Palette (mirrors ChatListScreen) ───────────────────────────────────────
-  static const _indigo = Color(0xFF4F46E5);
-  static const _violet = Color(0xFF7C3AED);
-  static const _indigo100 = Color(0xFFE0E7FF);
-  static const _indigo200 = Color(0xFFC7D2FE);
-  static const _indigo50 = Color(0xFFEEF2FF);
-  static const _cardSurface = Color(0xFFF7F8FF);
-  static const _pageDark = Color(0xFFE8EEFF);
-  static const _pageLight = Color(0xFFF0F4FF);
-  static const _slateDark = Color(0xFF1E1B4B);
-  static const _slateMid = Color(0xFF475569);
-  static const _slateMuted = Color(0xFF94A3B8);
+  @override
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
 
-  // ── Shared card decoration ─────────────────────────────────────────────────
+// ── Changed: State → ConsumerState ───────────────────────────────────────────
+class _DashboardScreenState extends ConsumerState<DashboardScreen>
+    with SingleTickerProviderStateMixin {
+  // ── Palette ────────────────────────────────────────────────────────────────
+  static const _indigo      = Color(0xFF4F46E5);
+  static const _violet      = Color(0xFF7C3AED);
+  static const _indigo100   = Color(0xFFE0E7FF);
+  static const _indigo200   = Color(0xFFC7D2FE);
+  static const _indigo50    = Color(0xFFEEF2FF);
+  static const _cardSurface = Color(0xFFF7F8FF);
+  static const _pageDark    = Color(0xFFE8EEFF);
+  static const _pageLight   = Color(0xFFF0F4FF);
+  static const _slateDark   = Color(0xFF1E1B4B);
+  static const _slateMuted  = Color(0xFF94A3B8);
+
   static const BoxDecoration _blueCard = BoxDecoration(
     color: _cardSurface,
     borderRadius: BorderRadius.all(Radius.circular(20)),
@@ -37,6 +46,55 @@ class DashboardScreen extends StatelessWidget {
       ),
     ],
   );
+
+  late final AnimationController _radarCtrl;
+  late final Animation<double> _radarPulse;
+
+  // ── NEW: current user UID, same pattern as ChatListScreen ─────────────────
+  String get _myUid => FirebaseAuth.instance.currentUser?.uid ?? '';
+
+  @override
+  void initState() {
+    super.initState();
+    _radarCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    )..repeat();
+    _radarPulse = CurvedAnimation(parent: _radarCtrl, curve: Curves.easeOut);
+  }
+
+  @override
+  void dispose() {
+    _radarCtrl.dispose();
+    super.dispose();
+  }
+
+  // ── NEW: format timestamp exactly as ChatListScreen does ──────────────────
+  String _formatTime(DateTime? dt) {
+    if (dt == null) return '';
+    final now = DateTime.now();
+    if (dt.day == now.day && dt.month == now.month && dt.year == now.year) {
+      return DateFormat('h:mm a').format(dt);
+    }
+    return DateFormat('MMM d').format(dt);
+  }
+
+  // ── NEW: fetch other user's displayName (same as ChatListScreen) ──────────
+  Future<Map<String, String>> _fetchUserInfo(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      final data = doc.data();
+      return {
+        'name':  data?['displayName'] as String? ?? 'Unknown',
+        'photo': data?['photoURL']    as String? ?? '',
+      };
+    } catch (_) {
+      return {'name': 'Unknown', 'photo': ''};
+    }
+  }
 
   // ── Avatar ─────────────────────────────────────────────────────────────────
   Widget _buildAvatar({double radius = 21}) {
@@ -53,7 +111,7 @@ class DashboardScreen extends StatelessWidget {
         border: Border.all(color: _indigo200, width: 2),
         boxShadow: [
           BoxShadow(
-            color: _indigo.withOpacity(0.22),
+            color: _indigo.withValues(alpha: 0.22),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -63,7 +121,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // ── Preview bubble (compact, read-only) ────────────────────────────────────
+  // ── Preview bubble ─────────────────────────────────────────────────────────
   Widget _buildPreviewBubble(String text, {bool isSent = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -97,7 +155,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // ── Single preview row inside a section card ───────────────────────────────
+  // ── Preview row ────────────────────────────────────────────────────────────
   Widget _buildPreviewRow({
     required String name,
     required String message,
@@ -129,7 +187,6 @@ class DashboardScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // Timestamp chip
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 7,
@@ -174,7 +231,7 @@ class DashboardScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: _violet.withOpacity(0.4),
+                              color: _violet.withValues(alpha: 0.4),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
@@ -200,7 +257,77 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // ── Section card (Chats or Groups) ─────────────────────────────────────────
+  // ── NEW: real preview rows built from a list of ChatModel ─────────────────
+  //
+  // Shows up to 2 rows. For direct chats, resolves the other user's name with
+  // _fetchUserInfo (same approach as ChatListScreen). Falls back gracefully
+  // while the Future is loading (shows "…").
+  //
+  List<Widget> _buildRealPreviews(List<ChatModel> chats) {
+    if (chats.isEmpty) {
+      return [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+          child: Text(
+            'No conversations yet',
+            style: TextStyle(color: _slateMuted, fontSize: 13),
+          ),
+        ),
+      ];
+    }
+
+    final preview = chats.take(2).toList();
+
+    return [
+      ...preview.map((chat) {
+        final lastMsg  = chat.lastMessage;
+        final isSent   = lastMsg?.senderId == _myUid;
+        final unread   = chat.unreadFor(_myUid);
+        final timeStr  = _formatTime(lastMsg?.sentAt);
+        final msgText  = lastMsg?.text ?? '';
+
+        // Group chats: name is available directly
+        if (chat.type == ChatType.group) {
+          return Column(
+            children: [
+              _buildPreviewRow(
+                name:    chat.groupName ?? 'Group',
+                message: msgText,
+                time:    timeStr,
+                isSent:  isSent,
+                unread:  unread,
+              ),
+              const SizedBox(height: 2),
+            ],
+          );
+        }
+
+        // Direct chats: resolve name asynchronously
+        final otherUid = chat.otherUserId(_myUid);
+        return FutureBuilder<Map<String, String>>(
+          future: _fetchUserInfo(otherUid),
+          builder: (context, snapshot) {
+            final name = snapshot.data?['name'] ?? '…';
+            return Column(
+              children: [
+                _buildPreviewRow(
+                  name:    name,
+                  message: msgText,
+                  time:    timeStr,
+                  isSent:  isSent,
+                  unread:  unread,
+                ),
+                const SizedBox(height: 2),
+              ],
+            );
+          },
+        );
+      }),
+      const SizedBox(height: 6),
+    ];
+  }
+
+  // ── Section card ───────────────────────────────────────────────────────────
   Widget _buildSectionCard({
     required BuildContext context,
     required IconData icon,
@@ -215,12 +342,10 @@ class DashboardScreen extends StatelessWidget {
         decoration: _blueCard,
         child: Column(
           children: [
-            // ── Card header ─────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
               child: Row(
                 children: [
-                  // Icon badge
                   Container(
                     width: 38,
                     height: 38,
@@ -233,7 +358,7 @@ class DashboardScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: _indigo.withOpacity(0.3),
+                          color: _indigo.withValues(alpha: 0.3),
                           blurRadius: 10,
                           offset: const Offset(0, 3),
                         ),
@@ -253,7 +378,6 @@ class DashboardScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Count pill
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -280,26 +404,19 @@ class DashboardScreen extends StatelessWidget {
                 ],
               ),
             ),
-
-            // ── Divider ─────────────────────────────────────────────────────
             Divider(
-              color: _indigo200.withOpacity(0.6),
+              color: _indigo200.withValues(alpha: 0.6),
               height: 1,
               indent: 14,
               endIndent: 14,
             ),
-
-            // ── Preview rows ─────────────────────────────────────────────────
             ...previews,
-
             const SizedBox(height: 4),
-
-            // ── Footer — "View all" ──────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
-                children: [
+                children: const [
                   Text(
                     'View all',
                     style: TextStyle(
@@ -308,8 +425,8 @@ class DashboardScreen extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(width: 2),
-                  const Icon(
+                  SizedBox(width: 2),
+                  Icon(
                     Icons.arrow_forward_ios_rounded,
                     color: _indigo,
                     size: 11,
@@ -323,7 +440,108 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // ── Drawer tile (mirrors ChatListScreen._drawerTile) ───────────────────────
+  // ── Discover card ──────────────────────────────────────────────────────────
+  Widget _buildDiscoverCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(context, AppRoutes.discover),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: const BorderRadius.all(Radius.circular(20)),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF3730A3), _indigo, _violet],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: _indigo.withValues(alpha: 0.35),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.all(Radius.circular(20)),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: AnimatedBuilder(
+                  animation: _radarPulse,
+                  builder: (_, __) => CustomPaint(
+                    painter: _RadarMiniPainter(progress: _radarPulse.value),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.15),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.radar_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Discover People',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 17,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Find & connect with new users',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.15),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Drawer tile ────────────────────────────────────────────────────────────
   Widget _drawerTile(
       BuildContext context,
       IconData icon,
@@ -362,15 +580,52 @@ class DashboardScreen extends StatelessWidget {
   // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    // ── NEW: watch the real providers ─────────────────────────────────────
+    final chatsAsync   = ref.watch(chatsStreamProvider);
+    final currentUser  = ref.watch(currentUserProvider);
+
+    // Derive first name for greeting ("Good morning, Bilal 👋")
+    final firstName = currentUser.when(
+      data:    (u) => u?.displayName.split(' ').first ?? 'there',
+      loading: () => '…',
+      error:   (_, __) => 'there',
+    );
+
+    // Split all chats into direct vs group lists
+    final directChats = chatsAsync.when(
+      data:    (list) => list.where((c) => c.type == ChatType.direct).toList(),
+      loading: () => <ChatModel>[],
+      error:   (_, __) => <ChatModel>[],
+    );
+
+    final groupChats = chatsAsync.when(
+      data:    (list) => list.where((c) => c.type == ChatType.group).toList(),
+      loading: () => <ChatModel>[],
+      error:   (_, __) => <ChatModel>[],
+    );
+
+    // Count labels for the badge pill
+    final chatCount  = chatsAsync.maybeWhen(
+      data:  (list) => list.where((c) => c.type == ChatType.direct).length,
+      orElse: () => null,
+    );
+    final groupCount = chatsAsync.maybeWhen(
+      data:  (list) => list.where((c) => c.type == ChatType.group).length,
+      orElse: () => null,
+    );
+
+    // Loading shimmer for the count pill
+    String chatLabel(int? count) =>
+        count == null ? '…' : '$count ${count == 1 ? 'chat' : 'chats'}';
+    String groupLabel(int? count) =>
+        count == null ? '…' : '$count ${count == 1 ? 'group' : 'groups'}';
+
     return Scaffold(
       backgroundColor: _pageDark,
-
-      // ── Drawer (mirrors ChatListScreen) ───────────────────────────────────
       drawer: Drawer(
         backgroundColor: _indigo50,
         child: Column(
           children: [
-            // Header — indigo→violet gradient
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(24, 60, 24, 28),
@@ -389,22 +644,23 @@ class DashboardScreen extends StatelessWidget {
                     height: 68,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.15),
+                      color: Colors.white.withValues(alpha: 0.15),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.45),
+                        color: Colors.white.withValues(alpha: 0.45),
                         width: 2,
                       ),
                     ),
-                    child: const Icon(
-                      Icons.person,
-                      size: 36,
-                      color: Colors.white,
-                    ),
+                    child: const Icon(Icons.person, size: 36, color: Colors.white),
                   ),
                   const SizedBox(height: 14),
-                  const Text(
-                    'Bilal',
-                    style: TextStyle(
+                  // ── NEW: real display name ────────────────────────────
+                  Text(
+                    currentUser.when(
+                      data:    (u) => u?.displayName ?? 'User',
+                      loading: () => '…',
+                      error:   (_, __) => 'User',
+                    ),
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -433,25 +689,13 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            _drawerTile(
-              context,
-              Icons.person_outline,
-              'Profile',
-              sub: 'View your profile',
-              onTap: () => Navigator.pushNamed(context, '/profile'),
-            ),
-            _drawerTile(
-              context,
-              Icons.settings_outlined,
-              'Settings',
-              sub: 'App preferences',
-            ),
-            _drawerTile(
-              context,
-              Icons.palette_outlined,
-              'Themes',
-              sub: 'Change appearance',
-            ),
+            _drawerTile(context, Icons.person_outline, 'Profile',
+                sub: 'View your profile',
+                onTap: () => Navigator.pushNamed(context, AppRoutes.profile)),
+            _drawerTile(context, Icons.settings_outlined, 'Settings',
+                sub: 'App preferences'),
+            _drawerTile(context, Icons.palette_outlined, 'Themes',
+                sub: 'Change appearance'),
             const Spacer(),
             Padding(
               padding: const EdgeInsets.all(20),
@@ -476,8 +720,6 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
       ),
-
-      // ── Body ──────────────────────────────────────────────────────────────
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -489,7 +731,7 @@ class DashboardScreen extends StatelessWidget {
         child: SafeArea(
           child: Column(
             children: [
-              // ── AppBar ────────────────────────────────────────────────────
+              // AppBar
               Container(
                 padding: const EdgeInsets.fromLTRB(8, 10, 16, 10),
                 decoration: const BoxDecoration(
@@ -500,15 +742,12 @@ class DashboardScreen extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    // Hamburger — opens drawer
                     Builder(
                       builder: (ctx) => IconButton(
                         icon: const Icon(Icons.menu_rounded, color: _slateDark),
                         onPressed: () => Scaffold.of(ctx).openDrawer(),
                       ),
                     ),
-                    // Tappable title — already on dashboard so no-op,
-                    // but keeps the same tap target pattern as child screens
                     const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,7 +778,6 @@ class DashboardScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    // Notification bell
                     Stack(
                       children: [
                         IconButton(
@@ -567,20 +805,20 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ),
 
-              // ── Scrollable content ────────────────────────────────────────
+              // Scrollable content
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
                   children: [
-                    // Greeting
                     Padding(
                       padding: const EdgeInsets.only(left: 4, bottom: 18),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Good morning, Bilal 👋',
-                            style: TextStyle(
+                          // ── NEW: dynamic greeting ──────────────────────
+                          Text(
+                            'Good morning, $firstName 👋',
+                            style: const TextStyle(
                               color: _slateDark,
                               fontWeight: FontWeight.w800,
                               fontSize: 20,
@@ -590,65 +828,120 @@ class DashboardScreen extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             "Here's what's waiting for you",
-                            style: TextStyle(
-                              color: _slateMuted,
-                              fontSize: 13.5,
-                            ),
+                            style: TextStyle(color: _slateMuted, fontSize: 13.5),
                           ),
                         ],
                       ),
                     ),
 
-                    // ── Chats section card ────────────────────────────────
-                    _buildSectionCard(
-                      context: context,
-                      icon: Icons.chat_bubble_rounded,
-                      title: 'Chats',
-                      countLabel: '24 chats',
-                      route: '/chats',
-                      previews: [
-                        _buildPreviewRow(
-                          name: 'Alex Morgan',
-                          message: 'Hey, are you coming today?',
-                          time: '12:41',
-                          unread: 2,
-                        ),
-                        const SizedBox(height: 2),
-                        _buildPreviewRow(
-                          name: 'Sarah Lee',
-                          message: 'See you tomorrow!',
-                          time: '11:05',
-                          isSent: true,
-                        ),
-                        const SizedBox(height: 6),
-                      ],
+                    // ── NEW: Chats card — real data ────────────────────────
+                    chatsAsync.when(
+                      // Loading state: keep the card skeleton visible
+                      loading: () => _buildSectionCard(
+                        context: context,
+                        icon: Icons.chat_bubble_rounded,
+                        title: 'Chats',
+                        countLabel: '…',
+                        route: AppRoutes.chat,
+                        previews: [
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(14, 14, 14, 10),
+                            child: Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: _indigo,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // Error state: card still tappable, graceful message
+                      error: (_, __) => _buildSectionCard(
+                        context: context,
+                        icon: Icons.chat_bubble_rounded,
+                        title: 'Chats',
+                        countLabel: '—',
+                        route: AppRoutes.chat,
+                        previews: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+                            child: Text(
+                              'Could not load chats',
+                              style: TextStyle(color: _slateMuted, fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // Data state: real previews
+                      data: (_) => _buildSectionCard(
+                        context: context,
+                        icon: Icons.chat_bubble_rounded,
+                        title: 'Chats',
+                        countLabel: chatLabel(chatCount),
+                        route: AppRoutes.chat,
+                        previews: _buildRealPreviews(directChats),
+                      ),
                     ),
 
                     const SizedBox(height: 14),
 
-                    // ── Groups section card ───────────────────────────────
-                    _buildSectionCard(
-                      context: context,
-                      icon: Icons.group_rounded,
-                      title: 'Group Chats',
-                      countLabel: '6 groups',
-                      route: '/groups', // add this route when GroupChatListScreen is ready
-                      previews: [
-                        _buildPreviewRow(
-                          name: 'Dev Team',
-                          message: 'Usman: PR is ready to review',
-                          time: '10:15',
-                          unread: 3,
-                        ),
-                        const SizedBox(height: 2),
-                        _buildPreviewRow(
-                          name: 'Family',
-                          message: 'Ammi: Dinner at 8 tonight!',
-                          time: '09:30',
-                        ),
-                        const SizedBox(height: 6),
-                      ],
+                    // ── NEW: Groups card — real data ───────────────────────
+                    chatsAsync.when(
+                      loading: () => _buildSectionCard(
+                        context: context,
+                        icon: Icons.group_rounded,
+                        title: 'Group Chats',
+                        countLabel: '…',
+                        route: AppRoutes.groups,
+                        previews: [
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(14, 14, 14, 10),
+                            child: Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: _indigo,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      error: (_, __) => _buildSectionCard(
+                        context: context,
+                        icon: Icons.group_rounded,
+                        title: 'Group Chats',
+                        countLabel: '—',
+                        route: AppRoutes.groups,
+                        previews: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+                            child: Text(
+                              'Could not load groups',
+                              style: TextStyle(color: _slateMuted, fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                      data: (_) => _buildSectionCard(
+                        context: context,
+                        icon: Icons.group_rounded,
+                        title: 'Group Chats',
+                        countLabel: groupLabel(groupCount),
+                        route: AppRoutes.groups,
+                        previews: _buildRealPreviews(groupChats),
+                      ),
                     ),
+
+                    const SizedBox(height: 14),
+
+                    _buildDiscoverCard(context),
                   ],
                 ),
               ),
@@ -658,4 +951,48 @@ class DashboardScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Radar mini painter ────────────────────────────────────────────────────────
+class _RadarMiniPainter extends CustomPainter {
+  final double progress;
+  const _RadarMiniPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width * 0.85;
+    final cy = size.height / 2;
+    final maxR = size.height * 1.1;
+
+    for (int i = 0; i < 3; i++) {
+      final t = (progress + i / 3) % 1.0;
+      final r = t * maxR;
+      final opacity = (1 - t) * 0.18;
+      canvas.drawCircle(
+        Offset(cx, cy),
+        r,
+        Paint()
+          ..color = Colors.white.withValues(alpha: opacity)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2,
+      );
+    }
+
+    final sweepAngle = progress * 2 * math.pi;
+    canvas.drawLine(
+      Offset(cx, cy),
+      Offset(
+        cx + math.cos(sweepAngle) * maxR * 0.6,
+        cy + math.sin(sweepAngle) * maxR * 0.6,
+      ),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.12)
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _RadarMiniPainter old) =>
+      old.progress != progress;
 }
