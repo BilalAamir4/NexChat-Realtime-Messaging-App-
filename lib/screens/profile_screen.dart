@@ -1,5 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../core/models/user_model.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -22,6 +24,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static const _slateMuted = Color(0xFF94A3B8);
 
   bool _isLoggingOut = false;
+  UserModel? _user;
+  bool _loadingUser = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      setState(() => _loadingUser = false);
+      return;
+    }
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
+    if (mounted && doc.exists) {
+      setState(() {
+        _user = UserModel.fromMap(doc.data()!);
+        _loadingUser = false;
+      });
+    } else {
+      setState(() => _loadingUser = false);
+    }
+  }
 
   // ── Logout ────────────────────────────────────────────────────────────────
   Future<void> _handleLogout() async {
@@ -328,7 +358,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ],
                             ),
-                            child: const Icon(
+                            child: (_user?.photoUrl.isNotEmpty ?? false)
+                                ? ClipOval(
+                              child: Image.network(
+                                _user!.photoUrl,
+                                width: 88,
+                                height: 88,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                                : const Icon(
                               Icons.person,
                               color: Colors.white,
                               size: 44,
@@ -350,60 +389,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 14),
 
                   // Name + username
-                  const Text(
-                    'Bilal',
-                    style: TextStyle(
-                      color: _slateDark,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
+                  if (_loadingUser)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: _indigo),
+                    )
+                  else ...[
+                    Text(
+                      _user?.displayName ?? 'Unknown',
+                      style: const TextStyle(
+                        color: _slateDark,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    '@bilal.nx',
-                    style: TextStyle(
-                      color: _slateMuted,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                    const SizedBox(height: 4),
+                    Text(
+                      _user != null ? '@${_user!.username}' : '',
+                      style: const TextStyle(
+                        color: _slateMuted,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
+                    const SizedBox(height: 6),
 
-                  // Online status pill
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _indigo100,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: _indigo200, width: 0.8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF22C55E),
-                            shape: BoxShape.circle,
+                    // Online status pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _indigo100,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: _indigo200, width: 0.8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              color: (_user?.isOnline ?? false)
+                                  ? const Color(0xFF22C55E)
+                                  : _slateMuted,
+                              shape: BoxShape.circle,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'Online',
-                          style: TextStyle(
-                            color: _slateMid,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                          const SizedBox(width: 6),
+                          Text(
+                            (_user?.isOnline ?? false) ? 'Online' : 'Offline',
+                            style: const TextStyle(
+                              color: _slateMid,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                  ], // end else
                   const SizedBox(height: 20),
 
                   // ── Action pill buttons ──────────────────────────────────
