@@ -3,21 +3,27 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 import '../features/chat/models/message_model.dart';
 import '../features/chat/providers/chat_provider.dart';
+import '../routes/app_routes.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String chatId;
   final String otherUserName;
   final String otherUserAvatar;
+  final bool isGroup;
+  final String? groupName;
 
   const ChatScreen({
     super.key,
     required this.chatId,
     required this.otherUserName,
     required this.otherUserAvatar,
+    this.isGroup = false,
+    this.groupName,
   });
 
   @override
@@ -42,7 +48,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
+  // Cache for sender names/photos in group chats
+  final Map<String, Map<String, String>> _senderCache = {};
+
   String get _myUid => FirebaseAuth.instance.currentUser!.uid;
+  String get _displayName => widget.isGroup
+      ? (widget.groupName ?? widget.otherUserName)
+      : widget.otherUserName;
 
   @override
   void initState() {
@@ -52,7 +64,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       duration: const Duration(milliseconds: 900),
     )..repeat();
 
-    // Mark messages as read when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(markAsReadProvider(widget.chatId));
     });
@@ -89,13 +100,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
+  // ── Fetch sender info (cached) ────────────────────────────────────────────
+  Future<Map<String, String>> _fetchSenderInfo(String uid) async {
+    if (_senderCache.containsKey(uid)) return _senderCache[uid]!;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      final data = doc.data();
+      final info = {
+        'name':  data?['displayName'] as String? ?? 'Unknown',
+        'photo': data?['photoURL']    as String? ?? '',
+      };
+      _senderCache[uid] = info;
+      return info;
+    } catch (_) {
+      return {'name': 'Unknown', 'photo': ''};
+    }
+  }
+
   // ── Read receipt ──────────────────────────────────────────────────────────
   Widget _buildReadReceipt(MessageModel msg) {
     final isRead = msg.readBy.length > 1;
-    if (isRead) {
-      return const Icon(Icons.done_all, size: 13, color: _indigo);
-    }
-    return const Icon(Icons.done_all, size: 13, color: _slateMuted);
+    return Icon(
+      Icons.done_all,
+      size: 13,
+      color: isRead ? _indigo : _slateMuted,
+    );
   }
 
   // ── Waveform ──────────────────────────────────────────────────────────────
@@ -184,17 +216,112 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
+  // ── AppBar avatar ─────────────────────────────────────────────────────────
+  Widget _buildAppBarAvatar() {
+    if (widget.isGroup) {
+      // Group icon avatar with gradient
+      return Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            colors: [_indigo, _violet],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(color: _indigo200, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: _indigo.withValues(alpha: 0.18),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.group_rounded, color: Colors.white, size: 20),
+      );
+    }
+
+    // Direct chat avatar
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: _indigo200, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: _indigo.withValues(alpha: 0.18),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: CircleAvatar(
+        radius: 19,
+        backgroundImage: widget.otherUserAvatar.isNotEmpty
+            ? NetworkImage(widget.otherUserAvatar)
+            : null,
+        backgroundColor: _indigo100,
+        child: widget.otherUserAvatar.isEmpty
+            ? Text(
+          widget.otherUserName.isNotEmpty
+              ? widget.otherUserName[0].toUpperCase()
+              : '?',
+          style: const TextStyle(
+            color: _indigo,
+            fontWeight: FontWeight.w700,
+          ),
+        )
+            : null,
+      ),
+    );
+  }
+
   // ── Message bubble ────────────────────────────────────────────────────────
   Widget _buildBubble(MessageModel msg) {
     final isMe = msg.senderId == _myUid;
     final timeStr = DateFormat('h:mm a').format(msg.sentAt);
 
+    // For group chats, fetch sender info for non-me messages
+    if (widget.isGroup && !isMe) {
+      return FutureBuilder<Map<String, String>>(
+        future: _fetchSenderInfo(msg.senderId),
+        builder: (context, snapshot) {
+          final senderName  = snapshot.data?['name']  ?? '...';
+          final senderPhoto = snapshot.data?['photo'] ?? '';
+          return _buildBubbleLayout(
+            msg: msg,
+            isMe: isMe,
+            timeStr: timeStr,
+            senderName: senderName,
+            senderPhoto: senderPhoto,
+          );
+        },
+      );
+    }
+
+    return _buildBubbleLayout(
+      msg: msg,
+      isMe: isMe,
+      timeStr: timeStr,
+      senderName: isMe ? 'Me' : widget.otherUserName,
+      senderPhoto: isMe ? '' : widget.otherUserAvatar,
+    );
+  }
+
+  Widget _buildBubbleLayout({
+    required MessageModel msg,
+    required bool isMe,
+    required String timeStr,
+    required String senderName,
+    required String senderPhoto,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── LEFT ────────────────────────────────────────────────────────
+          // ── LEFT ──────────────────────────────────────────────────────────
           Expanded(
             child: isMe
                 ? Column(
@@ -221,20 +348,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               ],
             )
                 : _MessageCard(
-              text:        msg.content,
-              senderName:  widget.otherUserName,
-              avatarUrl:   widget.otherUserAvatar,
-              alignRight:  false,
-              indigo:      _indigo,
-              violet:      _violet,
-              indigo100:   _indigo100,
-              indigo200:   _indigo200,
-              slateDark:   _slateDark,
-              slateMuted:  _slateMuted,
+              text:       msg.content,
+              senderName: senderName,
+              avatarUrl:  senderPhoto,
+              alignRight: false,
+              indigo:     _indigo,
+              violet:     _violet,
+              indigo100:  _indigo100,
+              indigo200:  _indigo200,
+              slateDark:  _slateDark,
+              slateMuted: _slateMuted,
             ),
           ),
 
-          // ── TIMELINE ────────────────────────────────────────────────────
+          // ── TIMELINE ──────────────────────────────────────────────────────
           SizedBox(
             width: 28,
             child: Column(
@@ -279,20 +406,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             ),
           ),
 
-          // ── RIGHT ───────────────────────────────────────────────────────
+          // ── RIGHT ─────────────────────────────────────────────────────────
           Expanded(
             child: isMe
                 ? _MessageCard(
-              text:        msg.content,
-              senderName:  'Me',
-              avatarUrl:   '',
-              alignRight:  true,
-              indigo:      _indigo,
-              violet:      _violet,
-              indigo100:   _indigo100,
-              indigo200:   _indigo200,
-              slateDark:   _slateDark,
-              slateMuted:  _slateMuted,
+              text:       msg.content,
+              senderName: 'Me',
+              avatarUrl:  '',
+              alignRight: true,
+              indigo:     _indigo,
+              violet:     _violet,
+              indigo100:  _indigo100,
+              indigo200:  _indigo200,
+              slateDark:  _slateDark,
+              slateMuted: _slateMuted,
             )
                 : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,7 +447,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Widget build(BuildContext context) {
     final messagesAsync = ref.watch(messagesStreamProvider(widget.chatId));
 
-    // Scroll to bottom when new messages arrive
     ref.listen(messagesStreamProvider(widget.chatId), (prev, next) {
       if (next.hasValue) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
@@ -330,7 +456,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     return Scaffold(
       backgroundColor: _pageDark,
 
-      // ── AppBar ───────────────────────────────────────────────────────────
+      // ── AppBar ────────────────────────────────────────────────────────────
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(64),
         child: Container(
@@ -351,84 +477,84 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     ),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: _indigo200, width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _indigo.withValues(alpha: 0.18),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: CircleAvatar(
-                      radius: 19,
-                      backgroundImage: widget.otherUserAvatar.isNotEmpty
-                          ? NetworkImage(widget.otherUserAvatar)
-                          : null,
-                      backgroundColor: _indigo100,
-                      child: widget.otherUserAvatar.isEmpty
-                          ? Text(
-                        widget.otherUserName.isNotEmpty
-                            ? widget.otherUserName[0].toUpperCase()
-                            : '?',
-                        style: const TextStyle(
-                          color: _indigo,
-                          fontWeight: FontWeight.w700,
-                        ),
+
+                  // Tappable avatar + name — opens GroupInfoScreen for groups
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: widget.isGroup
+                          ? () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.groupInfo,
+                        arguments: {'chatId': widget.chatId},
                       )
                           : null,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          widget.otherUserName,
-                          style: const TextStyle(
-                            color: _slateDark,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.2,
+                      child: Row(
+                        children: [
+                          _buildAppBarAvatar(),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  _displayName,
+                                  style: const TextStyle(
+                                    color: _slateDark,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.2,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (widget.isGroup)
+                                  const Text(
+                                    'Tap for group info',
+                                    style: TextStyle(
+                                      color: _slateMuted,
+                                      fontSize: 12,
+                                    ),
+                                  )
+                                else
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 7,
+                                        height: 7,
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFF22C55E),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 5),
+                                      const Text(
+                                        'Online',
+                                        style: TextStyle(
+                                          color: Color(0xFF22C55E),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                        Row(
-                          children: [
-                            Container(
-                              width: 7,
-                              height: 7,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF22C55E),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 5),
-                            const Text(
-                              'Online',
-                              style: TextStyle(
-                                color: Color(0xFF22C55E),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.videocam_outlined, color: _slateDark),
-                    onPressed: () {},
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.phone_outlined, color: _slateDark),
-                    onPressed: () {},
-                  ),
+
+                  if (!widget.isGroup) ...[
+                    IconButton(
+                      icon: const Icon(Icons.videocam_outlined, color: _slateDark),
+                      onPressed: () {},
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.phone_outlined, color: _slateDark),
+                      onPressed: () {},
+                    ),
+                  ],
                   IconButton(
                     icon: const Icon(Icons.more_vert, color: _slateDark),
                     onPressed: () {},
@@ -440,7 +566,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ),
       ),
 
-      // ── Body ─────────────────────────────────────────────────────────────
+      // ── Body ──────────────────────────────────────────────────────────────
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -451,14 +577,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ),
         child: Column(
           children: [
-
-            // ── Messages list ──────────────────────────────────────────────
+            // ── Messages list ────────────────────────────────────────────────
             Expanded(
               child: messagesAsync.when(
                 loading: () => const Center(
                   child: CircularProgressIndicator(color: _indigo),
                 ),
-                error: (e, st) => Center(
+                error: (e, st) => const Center(
                   child: Text(
                     'Something went wrong',
                     style: TextStyle(color: _slateMuted),
@@ -468,9 +593,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   if (messages.isEmpty) {
                     return Center(
                       child: Text(
-                        'No messages yet\nSay hello!',
+                        widget.isGroup
+                            ? 'Group created!\nSay hello to everyone 👋'
+                            : 'No messages yet\nSay hello!',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: _slateMuted,
                           fontSize: 14,
                           height: 1.6,
@@ -484,7 +611,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                     padding: const EdgeInsets.symmetric(vertical: 20),
                     itemCount: messages.length + 1,
                     itemBuilder: (context, index) {
-                      // Date divider
                       if (index == 0) {
                         return Center(
                           child: Container(
@@ -496,10 +622,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                             decoration: BoxDecoration(
                               color: _cardSurface,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: _indigo200,
-                                width: 0.8,
-                              ),
+                              border: Border.all(color: _indigo200, width: 0.8),
                               boxShadow: [
                                 BoxShadow(
                                   color: _indigo.withValues(alpha: 0.06),
@@ -528,7 +651,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               ),
             ),
 
-            // ── Input bar ──────────────────────────────────────────────────
+            // ── Input bar ────────────────────────────────────────────────────
             Container(
               padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
               decoration: BoxDecoration(
@@ -622,7 +745,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Send button (shows when text is entered)
                     ValueListenableBuilder<TextEditingValue>(
                       valueListenable: _textController,
                       builder: (context, value, child) {
@@ -631,7 +753,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                           onTap: hasText ? _sendMessage : null,
                           onLongPressStart: hasText
                               ? null
-                              : (_) => setState(() => _isRecording = true),
+                              : (_) =>
+                              setState(() => _isRecording = true),
                           onLongPressEnd: hasText
                               ? null
                               : (_) =>
@@ -700,9 +823,8 @@ class _MessageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: alignRight
-          ? CrossAxisAlignment.end
-          : CrossAxisAlignment.start,
+      crossAxisAlignment:
+      alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
         // Sender row
         Row(
@@ -745,9 +867,8 @@ class _MessageCard extends StatelessWidget {
             )
                 : null,
             color: alignRight ? null : indigo100,
-            border: alignRight
-                ? null
-                : Border.all(color: indigo200, width: 0.8),
+            border:
+            alignRight ? null : Border.all(color: indigo200, width: 0.8),
             borderRadius: BorderRadius.only(
               topLeft: const Radius.circular(16),
               topRight: const Radius.circular(16),

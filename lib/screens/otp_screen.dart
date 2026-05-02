@@ -254,10 +254,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen>
 
     if (state.isAuthenticated) {
       Navigator.pushNamedAndRemoveUntil(
-          context, AppRoutes.chat, (_) => false);
+          context, AppRoutes.dashboard, (_) => false);
     } else if (state.isError) {
       _showError(state.error ?? 'Invalid code. Please try again.');
-      // Clear boxes on error
       for (final c in _otpControllers) {
         c.clear();
       }
@@ -265,7 +264,6 @@ class _OtpScreenState extends ConsumerState<OtpScreen>
       setState(() {});
     }
   }
-
   // ─── Resend OTP ───────────────────────────────────────────────────────────
   Future<void> _resendOtp() async {
     if (!_canResend) return;

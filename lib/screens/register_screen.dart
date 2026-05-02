@@ -454,8 +454,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             if (!_step0Key.currentState!.validate()) return;
             FocusScope.of(context).unfocus();
             setState(() => _checkingUsername = true);
+            final username = _usernameCtrl.text.trim().toLowerCase();
             try {
-              final username = _usernameCtrl.text.trim().toLowerCase();
               final query = await FirebaseFirestore.instance
                   .collection('users')
                   .where('username', isEqualTo: username)
@@ -467,9 +467,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               } else {
                 setState(() => _step = 1);
               }
-            } catch (e) {
-              if (!mounted) return;
-              _showError('Could not check username. Please try again.');
+            }  catch (e) {
+              try {
+                final retryQuery = await FirebaseFirestore.instance
+                    .collection('users')
+                    .where('username', isEqualTo: username)
+                    .limit(1)
+                    .get();
+                if (!mounted) return;
+                if (retryQuery.docs.isNotEmpty) {
+                  _showError('That username is already taken.');
+                } else {
+                  setState(() => _step = 1);
+                }
+              } catch (e2) {
+                if (!mounted) return;
+                _showError('Could not check username. Please try again.');
+              }
             } finally {
               if (mounted) setState(() => _checkingUsername = false);
             }
