@@ -88,10 +88,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   late final AnimationController _ctrl;
   late final List<_OrbData> _orbs;
 
-  final _emailCtrl    = TextEditingController();
-  final _passCtrl     = TextEditingController();
-  final _formKey      = GlobalKey<FormState>();
-  bool _obscure       = true;
+  final _emailCtrl = TextEditingController();
+  final _passCtrl  = TextEditingController();
+  final _formKey   = GlobalKey<FormState>();
+  bool _obscure    = true;
+
+  // FIX: Holds phone number between firing sendOtp and the async codeSent
+  // callback. ref.listen in build() reads this to navigate correctly.
+  String _pendingPhone = '';
 
   @override
   void initState() {
@@ -178,7 +182,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   style: TextStyle(fontSize: 14, color: _slateMuted)),
               const SizedBox(height: 24),
 
-              // Phone field — same style as card fields
+              // Phone field
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -210,25 +214,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     builder: (context, _) {
                       final pulse = (sin(_ctrl.value * 2 * pi) + 1) / 2;
                       return GestureDetector(
-                        onTap: authState.isLoading ? null : () async {
+                        // FIX: Fire-and-forget — do NOT await and do NOT pop here.
+                        // verifyPhoneNumber callbacks fire asynchronously after this
+                        // returns, so polling state immediately after await always
+                        // sees stale data. ref.listen in build() handles navigation
+                        // once codeSent/authenticated/error actually arrives.
+                        onTap: authState.isLoading ? null : () {
                           final phone = phoneCtrl.text.trim();
                           if (phone.isEmpty) return;
-                          Navigator.pop(context);
-
-                          await ref.read(authNotifierProvider.notifier)
+                          // Store phone so ref.listen can pass it to OTP screen
+                          _pendingPhone = phone;
+                          ref.read(authNotifierProvider.notifier)
                               .sendOtp(phoneNumber: phone);
-
-                          if (!mounted) return;
-                          final s = ref.read(authNotifierProvider);
-                          if (s.isCodeSent) {
-                            Navigator.pushNamed(context, AppRoutes.otp,
-                                arguments: {
-                                  'verificationId': s.verificationId,
-                                  'phoneNumber': phone,
-                                });
-                          } else if (s.isError) {
-                            _showError(s.error ?? 'Failed to send OTP.');
-                          }
                         },
                         child: Container(
                           height: 56,
@@ -394,6 +391,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
+
+    // FIX: React to state changes reactively instead of polling after await.
+    // verifyPhoneNumber fires codeSent/error asynchronously — by the time
+    // sendOtp() returns, the state hasn't updated yet. ref.listen catches
+    // every transition so navigation always fires at the right moment.
+    ref.listen<AuthState>(authNotifierProvider, (previous, next) {
+      if (!mounted) return;
+
+      if (next.isCodeSent && _pendingPhone.isNotEmpty) {
+        // Dismiss the bottom sheet, then navigate to OTP screen
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.pushNamed(context, AppRoutes.otp, arguments: {
+          'verificationId': next.verificationId,
+          'phoneNumber': _pendingPhone,
+        });
+        _pendingPhone = '';
+      } else if (next.isAuthenticated) {
+        // Android auto-verify path: verificationCompleted fired, skip OTP screen
+        Navigator.pushNamedAndRemoveUntil(
+            context, AppRoutes.dashboard, (_) => false);
+      } else if (next.isError && _pendingPhone.isNotEmpty) {
+        // sendOtp failed — dismiss sheet and show error on the login screen
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        _showError(next.error ?? 'Failed to send OTP.');
+        _pendingPhone = '';
+      }
+    });
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
