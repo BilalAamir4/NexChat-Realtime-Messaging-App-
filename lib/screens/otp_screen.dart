@@ -238,10 +238,14 @@ class _OtpScreenState extends ConsumerState<OtpScreen>
 
   // ─── Verify OTP ───────────────────────────────────────────────────────────
   Future<void> _verifyOtp() async {
+    print('🔑 verificationId: ${widget.verificationId}');
+    print('📟 otpCode: $_otpCode');
+
     if (_otpCode.length < 6) {
       _showError('Please enter the complete 6-digit code.');
       return;
     }
+
     FocusScope.of(context).unfocus();
 
     await ref.read(authNotifierProvider.notifier).verifyOtp(

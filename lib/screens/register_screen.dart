@@ -467,23 +467,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               } else {
                 setState(() => _step = 1);
               }
-            }  catch (e) {
-              try {
-                final retryQuery = await FirebaseFirestore.instance
-                    .collection('users')
-                    .where('username', isEqualTo: username)
-                    .limit(1)
-                    .get();
-                if (!mounted) return;
-                if (retryQuery.docs.isNotEmpty) {
-                  _showError('That username is already taken.');
-                } else {
-                  setState(() => _step = 1);
-                }
-              } catch (e2) {
-                if (!mounted) return;
-                _showError('Could not check username. Please try again.');
-              }
+            } catch (e) {
+              if (!mounted) return;
+              _showError('Could not check username. Please try again.');
             } finally {
               if (mounted) setState(() => _checkingUsername = false);
             }
