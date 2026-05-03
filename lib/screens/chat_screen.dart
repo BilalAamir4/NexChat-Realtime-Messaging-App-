@@ -9,9 +9,12 @@ import 'package:intl/intl.dart';
 import '../features/chat/models/message_model.dart';
 import '../features/chat/providers/chat_provider.dart';
 import '../routes/app_routes.dart';
+import '../features/presence/presence_provider.dart';
+
 
 class ChatScreen extends ConsumerStatefulWidget {
   final String chatId;
+  final String otherUserId; // needed to stream presence
   final String otherUserName;
   final String otherUserAvatar;
   final bool isGroup;
@@ -20,6 +23,7 @@ class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({
     super.key,
     required this.chatId,
+    required this.otherUserId,
     required this.otherUserName,
     required this.otherUserAvatar,
     this.isGroup = false,
@@ -516,27 +520,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                                     ),
                                   )
                                 else
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 7,
-                                        height: 7,
-                                        decoration: const BoxDecoration(
-                                          color: Color(0xFF22C55E),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 5),
-                                      const Text(
-                                        'Online',
-                                        style: TextStyle(
-                                          color: Color(0xFF22C55E),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                  _PresenceDot(uid: widget.otherUserId),
                               ],
                             ),
                           ),
@@ -895,6 +879,49 @@ class _MessageCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Presence dot (live) ───────────────────────────────────────────────────────
+class _PresenceDot extends ConsumerWidget {
+  final String uid;
+  const _PresenceDot({required this.uid});
+
+  static const _green  = Color(0xFF22C55E);
+  static const _muted  = Color(0xFF94A3B8);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final presenceAsync = ref.watch(presenceProvider(uid));
+
+    return presenceAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error:   (_, __) => const SizedBox.shrink(),
+      data: (presence) {
+        final isOnline = presence.isOnline;
+        return Row(
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: isOnline ? _green : _muted,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              presence.lastSeenLabel,
+              style: TextStyle(
+                color: isOnline ? _green : _muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

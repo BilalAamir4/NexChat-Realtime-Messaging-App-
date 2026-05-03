@@ -247,11 +247,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
         context,
         AppRoutes.chatRoom,
         arguments: {
-          'chatId': chat.chatId,
-          'otherUserName': name,
+          'chatId':          chat.chatId,
+          'otherUserId':     isGroup ? '' : chat.otherUserId(_myUid), // ← add this
+          'otherUserName':   name,
           'otherUserAvatar': photoUrl,
-          'isGroup': isGroup,
-          'groupName': chat.groupName,
+          'isGroup':         isGroup,
+          'groupName':       chat.groupName,
         },
       ),
       child: AnimatedContainer(
