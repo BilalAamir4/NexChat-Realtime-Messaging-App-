@@ -11,7 +11,6 @@ import '../features/chat/providers/chat_provider.dart';
 import '../features/auth/providers/auth_provider.dart';
 import '../routes/app_routes.dart';
 
-// ── Changed: StatefulWidget → ConsumerStatefulWidget ─────────────────────────
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
@@ -860,21 +859,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         ],
                       ),
                       // Error state: card still tappable, graceful message
-                      error: (_, __) => _buildSectionCard(
+                      error: (e, _) => _buildSectionCard(
                         context: context,
                         icon: Icons.chat_bubble_rounded,
                         title: 'Chats',
-                        countLabel: '—',
+                        countLabel: '0 chats',
                         route: AppRoutes.chat,
-                        previews: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-                            child: Text(
-                              'Could not load chats',
-                              style: TextStyle(color: _slateMuted, fontSize: 13),
-                            ),
-                          ),
-                        ],
+                        previews: _buildRealPreviews([]),
                       ),
                       // Data state: real previews
                       data: (_) => _buildSectionCard(
@@ -913,21 +904,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                           ),
                         ],
                       ),
-                      error: (_, __) => _buildSectionCard(
+                      error: (e, _) => _buildSectionCard(
                         context: context,
                         icon: Icons.group_rounded,
                         title: 'Group Chats',
-                        countLabel: '—',
+                        countLabel: '0 groups',
                         route: AppRoutes.groups,
-                        previews: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-                            child: Text(
-                              'Could not load groups',
-                              style: TextStyle(color: _slateMuted, fontSize: 13),
-                            ),
-                          ),
-                        ],
+                        previews: _buildRealPreviews([]),
                       ),
                       data: (_) => _buildSectionCard(
                         context: context,
