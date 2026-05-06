@@ -1,18 +1,17 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexchat_real_time_messaging_app/core/theme/app_theme.dart';
 import 'package:nexchat_real_time_messaging_app/routes/app_routes.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// ─── Color tokens ────────────────────────────────────────────────────────────
-const _indigo    = Color(0xFF4F46E5);
-const _violet    = Color(0xFF7C3AED);
-const _indigo100 = Color(0xFFE0E7FF);
-const _indigo200 = Color(0xFFC7D2FE);
-const _slateDark = Color(0xFF1E1B4B);
-
 // ─── Splash Screen ────────────────────────────────────────────────────────────
+//
+// NOTE: SplashScreen intentionally stays dark regardless of theme.
+// It's a branded cinematic intro — always deep indigo/black.
+// The user's chosen theme kicks in after navigation to the next screen.
+//
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
@@ -49,22 +48,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     super.initState();
 
     _constellationCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 8),
+      vsync: this, duration: const Duration(seconds: 8),
     )..repeat();
 
     _constellationFadeCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
+      vsync: this, duration: const Duration(milliseconds: 600),
     );
     _constellationFade = CurvedAnimation(
-      parent: _constellationFadeCtrl,
-      curve: Curves.easeOut,
+      parent: _constellationFadeCtrl, curve: Curves.easeOut,
     );
 
     _beamCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      vsync: this, duration: const Duration(milliseconds: 1000),
     );
     _beamProgress = Tween<double>(begin: -0.2, end: 1.2).animate(
       CurvedAnimation(parent: _beamCtrl, curve: Curves.easeInOut),
@@ -72,8 +67,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     _beamCtrl.addListener(() => setState(() => _beamX = _beamProgress.value));
 
     _rippleCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
+      vsync: this, duration: const Duration(milliseconds: 700),
     );
     _rippleRadius = Tween<double>(begin: 0, end: 1.0).animate(
       CurvedAnimation(parent: _rippleCtrl, curve: Curves.easeOut),
@@ -83,44 +77,33 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     );
 
     _iconCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
+      vsync: this, duration: const Duration(milliseconds: 800),
     );
     _iconScale = Tween<double>(begin: 0.5, end: 1.0).animate(
       CurvedAnimation(parent: _iconCtrl, curve: Curves.elasticOut),
     );
     _iconOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _iconCtrl,
-        curve: const Interval(0.0, 0.45, curve: Curves.easeOut),
-      ),
+      CurvedAnimation(parent: _iconCtrl,
+          curve: const Interval(0.0, 0.45, curve: Curves.easeOut)),
     );
     _iconGlow = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _iconCtrl,
-        curve: const Interval(0.3, 1.0, curve: Curves.easeOut),
-      ),
+      CurvedAnimation(parent: _iconCtrl,
+          curve: const Interval(0.3, 1.0, curve: Curves.easeOut)),
     );
 
     _wordCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 550),
+      vsync: this, duration: const Duration(milliseconds: 550),
     );
     _wordOpacity = CurvedAnimation(parent: _wordCtrl, curve: Curves.easeOut);
-    _wordSlide = Tween<Offset>(
-      begin: const Offset(0, 0.35),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _wordCtrl, curve: Curves.easeOut));
+    _wordSlide = Tween<Offset>(begin: const Offset(0, 0.35), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _wordCtrl, curve: Curves.easeOut));
     _tagOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _wordCtrl,
-        curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
-      ),
+      CurvedAnimation(parent: _wordCtrl,
+          curve: const Interval(0.5, 1.0, curve: Curves.easeOut)),
     );
 
     _overlayCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
+      vsync: this, duration: const Duration(milliseconds: 600),
     );
     _overlayOpacity = Tween<double>(begin: 0.88, end: 0.0).animate(
       CurvedAnimation(parent: _overlayCtrl, curve: Curves.easeOut),
@@ -150,7 +133,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     final user = FirebaseAuth.instance.currentUser;
 
-    // ── Update lastSeen for returning users ──────────────────────────────────
     if (user != null) {
       await FirebaseFirestore.instance
           .collection('users')
@@ -183,7 +165,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     final centerY = size.height * 0.42;
 
     return Scaffold(
-      backgroundColor: _slateDark,
+      backgroundColor: NexColors.lightSlateDark,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -206,10 +188,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
           // ── 2. Constellation network ──────────────────────────────────
           AnimatedBuilder(
-            animation: Listenable.merge([
-              _constellationCtrl,
-              _constellationFadeCtrl,
-            ]),
+            animation: Listenable.merge([_constellationCtrl, _constellationFadeCtrl]),
             builder: (_, _) => CustomPaint(
               painter: _ConstellationPainter(
                 tick:        _constellationCtrl.value,
@@ -301,7 +280,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                       children: [
                         ShaderMask(
                           shaderCallback: (b) => const LinearGradient(
-                            colors: [_indigo200, Colors.white, _indigo100],
+                            colors: [NexColors.indigo200, Colors.white, NexColors.indigo100],
                             stops: [0.0, 0.5, 1.0],
                           ).createShader(b),
                           child: const Text(
@@ -324,7 +303,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                               fontSize: 11,
                               letterSpacing: 3.5,
                               fontWeight: FontWeight.w400,
-                              color: _indigo200.withValues(alpha: 0.65),
+                              color: NexColors.indigo200.withValues(alpha: 0.65),
                             ),
                           ),
                         ),
@@ -405,7 +384,7 @@ class _ConstellationPainter extends CustomPainter {
         final activated = (a.activated && b.activated) ? 0.1 : 0.0;
         final alpha = (base + beamBoost * 0.55 + activated).clamp(0.0, 0.85);
 
-        linePaint.color = Color.lerp(_indigo, _indigo200, beamBoost)!
+        linePaint.color = Color.lerp(NexColors.indigo, NexColors.indigo200, beamBoost)!
             .withValues(alpha: alpha);
         canvas.drawLine(Offset(ax, ay), Offset(bx, by), linePaint);
       }
@@ -425,19 +404,17 @@ class _ConstellationPainter extends CustomPainter {
 
       if (beamBoost > 0.05) {
         canvas.drawCircle(
-          Offset(nx, ny),
-          n.r * 4.5,
+          Offset(nx, ny), n.r * 4.5,
           Paint()
-            ..color = _indigo200.withValues(alpha: beamBoost * 0.5 * fadeIn)
+            ..color = NexColors.indigo200.withValues(alpha: beamBoost * 0.5 * fadeIn)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
         );
       }
 
       canvas.drawCircle(
-        Offset(nx, ny),
-        n.r + beamBoost * 1.8,
+        Offset(nx, ny), n.r + beamBoost * 1.8,
         Paint()
-          ..color = Color.lerp(_indigo200, Colors.white, beamBoost)!
+          ..color = Color.lerp(NexColors.indigo200, Colors.white, beamBoost)!
               .withValues(alpha: baseAlpha),
       );
     }
@@ -463,11 +440,7 @@ class _ConstellationNode {
 // ─── Beam Painter ─────────────────────────────────────────────────────────────
 class _BeamPainter extends CustomPainter {
   final double beamX, screenWidth, screenHeight;
-  const _BeamPainter({
-    required this.beamX,
-    required this.screenWidth,
-    required this.screenHeight,
-  });
+  const _BeamPainter({required this.beamX, required this.screenWidth, required this.screenHeight});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -480,9 +453,9 @@ class _BeamPainter extends CustomPainter {
         ..shader = LinearGradient(
           colors: [
             Colors.transparent,
-            _indigo.withValues(alpha: 0.08),
-            _indigo200.withValues(alpha: 0.22),
-            _indigo.withValues(alpha: 0.08),
+            NexColors.indigo.withValues(alpha: 0.08),
+            NexColors.indigo200.withValues(alpha: 0.22),
+            NexColors.indigo.withValues(alpha: 0.08),
             Colors.transparent,
           ],
           stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
@@ -495,9 +468,9 @@ class _BeamPainter extends CustomPainter {
         ..shader = LinearGradient(
           colors: [
             Colors.transparent,
-            _indigo.withValues(alpha: 0.45),
+            NexColors.indigo.withValues(alpha: 0.45),
             Colors.white.withValues(alpha: 0.9),
-            _indigo.withValues(alpha: 0.45),
+            NexColors.indigo.withValues(alpha: 0.45),
             Colors.transparent,
           ],
           stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
@@ -508,10 +481,7 @@ class _BeamPainter extends CustomPainter {
       Rect.fromLTWH(cx - bw * 4, 0, bw * 3.5, screenHeight),
       Paint()
         ..shader = LinearGradient(
-          colors: [
-            _indigo200.withValues(alpha: 0.15),
-            Colors.transparent,
-          ],
+          colors: [NexColors.indigo200.withValues(alpha: 0.15), Colors.transparent],
         ).createShader(Rect.fromLTWH(cx - bw * 4, 0, bw * 3.5, screenHeight)),
     );
 
@@ -530,24 +500,21 @@ class _BeamPainter extends CustomPainter {
 // ─── Ripple Painter ───────────────────────────────────────────────────────────
 class _RipplePainter extends CustomPainter {
   final double cx, cy, radius, opacity;
-  const _RipplePainter({
-    required this.cx, required this.cy,
-    required this.radius, required this.opacity,
-  });
+  const _RipplePainter({required this.cx, required this.cy, required this.radius, required this.opacity});
 
   @override
   void paint(Canvas canvas, Size size) {
     if (opacity <= 0) return;
     canvas.drawCircle(Offset(cx, cy), radius,
       Paint()
-        ..color = _indigo.withValues(alpha: opacity * 0.6)
+        ..color = NexColors.indigo.withValues(alpha: opacity * 0.6)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5,
     );
     if (radius > 20) {
       canvas.drawCircle(Offset(cx, cy), radius * 0.6,
         Paint()
-          ..color = _indigo200.withValues(alpha: opacity * 0.45)
+          ..color = NexColors.indigo200.withValues(alpha: opacity * 0.45)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.0,
       );
@@ -573,23 +540,22 @@ class _NexChatIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: size,
-      height: size,
+      width: size, height: size,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(size * 0.22),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [_indigo, _violet],
+          colors: [NexColors.indigo, NexColors.violet],
         ),
         boxShadow: [
           BoxShadow(
-            color: _indigo.withValues(alpha: 0.55 * glowIntensity),
+            color: NexColors.indigo.withValues(alpha: 0.55 * glowIntensity),
             blurRadius: 28 + 20 * glowIntensity,
             spreadRadius: 2 + 6 * glowIntensity,
           ),
           BoxShadow(
-            color: _violet.withValues(alpha: 0.4 * glowIntensity),
+            color: NexColors.violet.withValues(alpha: 0.4 * glowIntensity),
             blurRadius: 55 + 30 * glowIntensity,
             spreadRadius: 6 + 8 * glowIntensity,
           ),
@@ -623,10 +589,10 @@ class _NMarkPainter extends CustomPainter {
       ..lineTo(rx + bw * 0.85, bot - 4)..lineTo(rx - bw * 0.1, bot - 4)..close(), p);
 
     for (final (nx, ny, c) in [
-      (lx + bw / 2, top + bw / 2, _indigo),
-      (rx + bw / 2, top + bw / 2, _violet),
-      (lx + bw / 2, bot - bw / 2, _violet),
-      (rx + bw / 2, bot - bw / 2, _indigo),
+      (lx + bw / 2, top + bw / 2, NexColors.indigo),
+      (rx + bw / 2, top + bw / 2, NexColors.violet),
+      (lx + bw / 2, bot - bw / 2, NexColors.violet),
+      (rx + bw / 2, bot - bw / 2, NexColors.indigo),
     ]) {
       canvas.drawCircle(Offset(nx, ny), bw * 0.62, Paint()..color = c);
       canvas.drawCircle(Offset(nx, ny), bw * 0.62, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = bw * 0.22);
@@ -670,7 +636,7 @@ class _LoaderBar extends StatelessWidget {
             height: 1.5,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(1),
-              color: _indigo.withValues(alpha: 0.2),
+              color: NexColors.indigo.withValues(alpha: 0.2),
             ),
             child: FractionallySizedBox(
               widthFactor: 1.0,
@@ -684,9 +650,9 @@ class _LoaderBar extends StatelessWidget {
                       math.min(1.0, t + 0.25),
                     ],
                     colors: [
-                      _indigo.withValues(alpha: 0.15),
+                      NexColors.indigo.withValues(alpha: 0.15),
                       Colors.white.withValues(alpha: 0.75),
-                      _indigo.withValues(alpha: 0.15),
+                      NexColors.indigo.withValues(alpha: 0.15),
                     ],
                   ),
                 ),

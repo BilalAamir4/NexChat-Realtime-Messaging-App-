@@ -3,21 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexchat_real_time_messaging_app/core/theme/app_theme.dart';
 import 'package:nexchat_real_time_messaging_app/features/auth/providers/auth_provider.dart';
 import 'package:nexchat_real_time_messaging_app/routes/app_routes.dart';
-
-// ─────────────────────────────────────────────
-//  NexChat Design Tokens
-// ─────────────────────────────────────────────
-const _indigo      = Color(0xFF4F46E5);
-const _violet      = Color(0xFF7C3AED);
-const _indigo200   = Color(0xFFC7D2FE);
-const _cardSurface = Color(0xFFF7F8FF);
-const _pageDark    = Color(0xFFE8EEFF);
-const _pageLight   = Color(0xFFF0F4FF);
-const _slateDark   = Color(0xFF1E1B4B);
-const _slateMid    = Color(0xFF475569);
-const _slateMuted  = Color(0xFF94A3B8);
 
 // ─────────────────────────────────────────────
 //  Orb Data Model
@@ -99,7 +87,7 @@ class _StepIndicator extends StatelessWidget {
           height: 8,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(4),
-            color: (isActive || isDone) ? _indigo : _indigo200,
+            color: (isActive || isDone) ? NexColors.indigo : context.cardBorder,
           ),
         );
       }),
@@ -126,9 +114,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   bool   _obscure        = true;
   bool   _obscureConfirm = true;
   int    _selectedAvatar = 0;
-  String _pendingPhone   = ''; // holds the phone number while waiting for codeSent
-  bool   _checkingEmail    = false; // true while verifying email availability
-  bool   _checkingUsername = false; // true while verifying username uniqueness
+  String _pendingPhone   = '';
+  bool   _checkingEmail    = false;
+  bool   _checkingUsername = false;
 
   final _nameCtrl     = TextEditingController();
   final _usernameCtrl = TextEditingController();
@@ -152,7 +140,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   void initState() {
     super.initState();
     final rng    = Random(99);
-    final colors = [_indigo, _violet, const Color(0xFF6366F1), const Color(0xFF818CF8)];
+    final colors = [NexColors.indigo, NexColors.violet, const Color(0xFF6366F1), const Color(0xFF818CF8)];
     _orbs = List.generate(14, (_) => _OrbData(
       x: rng.nextDouble(), y: rng.nextDouble(),
       radius: 28 + rng.nextDouble() * 44,
@@ -176,7 +164,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     super.dispose();
   }
 
-  // ─── Sign Up ──────────────────────────────────────────────────────────────
   Future<void> _signUp() async {
     FocusScope.of(context).unfocus();
 
@@ -197,7 +184,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     }
   }
 
-  // ─── Phone Bottom Sheet ───────────────────────────────────────────────────
   void _showPhoneSheet() {
     final phoneCtrl = TextEditingController();
 
@@ -209,9 +195,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: Container(
           padding: const EdgeInsets.fromLTRB(28, 20, 28, 32),
-          decoration: const BoxDecoration(
-            color: _cardSurface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          decoration: BoxDecoration(
+            color: context.cardSurface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -220,41 +206,39 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
               Center(
                 child: Container(
                   width: 40, height: 4,
-                  decoration: BoxDecoration(color: _indigo200, borderRadius: BorderRadius.circular(2)),
+                  decoration: BoxDecoration(color: context.cardBorder, borderRadius: BorderRadius.circular(2)),
                 ),
               ),
               const SizedBox(height: 24),
-              const Text('One last step',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _slateDark)),
+              Text('One last step',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: context.textPrimary)),
               const SizedBox(height: 6),
-              const Text('Enter your phone number to secure your account with SMS verification.',
-                  style: TextStyle(fontSize: 14, color: _slateMuted)),
+              Text('Enter your phone number to secure your account with SMS verification.',
+                  style: TextStyle(fontSize: 14, color: context.textMuted)),
               const SizedBox(height: 24),
 
-              // Phone field
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: context.isDark ? NexColors.darkSurface : Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _indigo200, width: 1.2),
-                  boxShadow: [BoxShadow(color: _indigo.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))],
+                  border: Border.all(color: context.cardBorder, width: 1.2),
+                  boxShadow: [BoxShadow(color: NexColors.indigo.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))],
                 ),
                 child: TextField(
                   controller: phoneCtrl,
                   keyboardType: TextInputType.phone,
-                  style: const TextStyle(fontSize: 15, color: _slateDark, fontWeight: FontWeight.w500),
-                  decoration: const InputDecoration(
+                  style: TextStyle(fontSize: 15, color: context.textPrimary, fontWeight: FontWeight.w500),
+                  decoration: InputDecoration(
                     hintText: '+92 300 1234567',
-                    hintStyle: TextStyle(color: _slateMuted, fontSize: 14),
-                    prefixIcon: Icon(Icons.phone_outlined, color: _indigo, size: 20),
+                    hintStyle: TextStyle(color: context.textMuted, fontSize: 14),
+                    prefixIcon: const Icon(Icons.phone_outlined, color: NexColors.indigo, size: 20),
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   ),
                 ),
               ),
               const SizedBox(height: 24),
 
-              // Send code button
               Consumer(
                 builder: (context, ref, _) {
                   final authState = ref.watch(authNotifierProvider);
@@ -263,9 +247,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                     builder: (context, _) {
                       final pulse = (sin(_ctrl.value * 2 * pi) + 1) / 2;
                       return GestureDetector(
-                        // FIX: fire-and-forget. verifyPhoneNumber callbacks fire
-                        // AFTER the future returns, so await+poll always sees
-                        // stale state. ref.listen in build() handles navigation.
                         onTap: authState.isLoading ? null : () {
                           final phone = phoneCtrl.text.trim();
                           if (phone.isEmpty) return;
@@ -278,12 +259,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(16),
                             gradient: const LinearGradient(
-                              colors: [_indigo, _violet],
+                              colors: [NexColors.indigo, NexColors.violet],
                               begin: Alignment.centerLeft,
                               end: Alignment.centerRight,
                             ),
                             boxShadow: [BoxShadow(
-                              color: _indigo.withOpacity(0.25 + 0.20 * pulse),
+                              color: NexColors.indigo.withOpacity(0.25 + 0.20 * pulse),
                               blurRadius: 16 + 12 * pulse,
                               spreadRadius: pulse * 2,
                               offset: const Offset(0, 4),
@@ -309,7 +290,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     );
   }
 
-  // ─── Error Snack bar ───────────────────────────────────────────────────────
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(message),
@@ -320,7 +300,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     ));
   }
 
-  // ─── Field Builder ────────────────────────────────────────────────────────
   Widget _field({
     required TextEditingController controller,
     required String hint,
@@ -332,21 +311,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.isDark ? NexColors.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _indigo200, width: 1.2),
-        boxShadow: [BoxShadow(color: _indigo.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))],
+        border: Border.all(color: context.cardBorder, width: 1.2),
+        boxShadow: [BoxShadow(color: NexColors.indigo.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))],
       ),
       child: TextFormField(
         controller: controller,
         obscureText: obscure,
         keyboardType: keyboardType,
         validator: validator,
-        style: const TextStyle(fontSize: 15, color: _slateDark, fontWeight: FontWeight.w500),
+        style: TextStyle(fontSize: 15, color: context.textPrimary, fontWeight: FontWeight.w500),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: _slateMuted, fontSize: 14),
-          prefixIcon: Icon(icon, color: _indigo.withOpacity(0.55), size: 20),
+          hintStyle: TextStyle(color: context.textMuted, fontSize: 14),
+          prefixIcon: Icon(icon, color: NexColors.indigo.withOpacity(0.55), size: 20),
           suffixIcon: suffix,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -357,7 +336,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     );
   }
 
-  // ─── Primary Button ───────────────────────────────────────────────────────
   Widget _primaryButton(String label, VoidCallback? onTap, {bool isLoading = false}) {
     return AnimatedBuilder(
       animation: _ctrl,
@@ -370,12 +348,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               gradient: const LinearGradient(
-                colors: [_indigo, _violet],
+                colors: [NexColors.indigo, NexColors.violet],
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
               ),
               boxShadow: [BoxShadow(
-                color: _indigo.withOpacity(0.25 + 0.20 * pulse),
+                color: NexColors.indigo.withOpacity(0.25 + 0.20 * pulse),
                 blurRadius: 16 + 12 * pulse,
                 spreadRadius: pulse * 2,
                 offset: const Offset(0, 4),
@@ -394,7 +372,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     );
   }
 
-  // ─── Back Button ──────────────────────────────────────────────────────────
   Widget _backButton(VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
@@ -403,22 +380,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         decoration: BoxDecoration(
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _indigo200, width: 1.2),
+          border: Border.all(color: context.cardBorder, width: 1.2),
         ),
         alignment: Alignment.center,
         child: const Text('Back',
-            style: TextStyle(color: _indigo, fontSize: 15, fontWeight: FontWeight.w600)),
+            style: TextStyle(color: NexColors.indigo, fontSize: 15, fontWeight: FontWeight.w600)),
       ),
     );
   }
 
   Widget _sectionLabel(String text) {
     return Text(text,
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-            color: _slateMid, letterSpacing: 0.3));
+        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+            color: context.textSecondary, letterSpacing: 0.3));
   }
 
-  // ─── Step 0: Identity ─────────────────────────────────────────────────────
   Widget _stepIdentity() {
     return Form(
       key: _step0Key,
@@ -479,7 +455,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     );
   }
 
-  // ─── Step 1: Credentials ──────────────────────────────────────────────────
   Widget _stepCredentials(bool isLoading) {
     return Form(
       key: _step1Key,
@@ -515,7 +490,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             suffix: GestureDetector(
               onTap: () => setState(() => _obscure = !_obscure),
               child: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                  color: _slateMuted, size: 20),
+                  color: context.textMuted, size: 20),
             ),
           ),
           const SizedBox(height: 16),
@@ -534,7 +509,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             suffix: GestureDetector(
               onTap: () => setState(() => _obscureConfirm = !_obscureConfirm),
               child: Icon(_obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                  color: _slateMuted, size: 20),
+                  color: context.textMuted, size: 20),
             ),
           ),
           const SizedBox(height: 28),
@@ -543,12 +518,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
             FocusScope.of(context).unfocus();
             setState(() => _checkingEmail = true);
             try {
-              // Check if this email is already registered before going to step 2
               final methods = await FirebaseAuth.instance
                   .fetchSignInMethodsForEmail(_emailCtrl.text.trim());
               if (!mounted) return;
               if (methods.isNotEmpty) {
-                // Email taken — show error inline, stay on step 1
                 _showError('An account already exists with this email.');
               } else {
                 setState(() => _step = 2);
@@ -571,7 +544,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     );
   }
 
-  // ─── Step 2: Avatar ───────────────────────────────────────────────────────
   Widget _stepAvatar(bool isLoading) {
     final initials = _nameCtrl.text.trim().isNotEmpty
         ? _nameCtrl.text.trim().split(' ').map((w) => w[0]).take(2).join().toUpperCase()
@@ -580,7 +552,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Avatar preview
         Center(
           child: AnimatedBuilder(
             animation: _ctrl,
@@ -611,20 +582,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         Center(
           child: Text(
             _nameCtrl.text.trim().isNotEmpty ? _nameCtrl.text.trim() : 'Your Name',
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: _slateDark),
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: context.textPrimary),
           ),
         ),
         Center(
           child: Text(
             _usernameCtrl.text.trim().isNotEmpty ? '@${_usernameCtrl.text.trim()}' : '@username',
-            style: const TextStyle(fontSize: 13, color: _slateMuted),
+            style: TextStyle(fontSize: 13, color: context.textMuted),
           ),
         ),
         const SizedBox(height: 24),
         _sectionLabel('Choose your avatar color'),
         const SizedBox(height: 12),
 
-        // Color swatches
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -644,7 +614,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                   gradient: LinearGradient(colors: grads,
                       begin: Alignment.topLeft, end: Alignment.bottomRight),
                   border: isSelected
-                      ? Border.all(color: _slateDark, width: 2.5)
+                      ? Border.all(color: context.textPrimary, width: 2.5)
                       : Border.all(color: Colors.transparent, width: 2.5),
                   boxShadow: isSelected
                       ? [BoxShadow(color: grads[0].withOpacity(0.4), blurRadius: 10)]
@@ -673,14 +643,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     final authState = ref.watch(authNotifierProvider);
     final meta      = _stepMeta;
 
-    // FIX: React to state changes here instead of polling after await.
-    // verifyPhoneNumber fires callbacks asynchronously — by the time
-    // await sendOtp() returns, state hasn't updated yet. ref.listen
-    // fires on every transition so we always catch codeSent/error.
     ref.listen<AuthState>(authNotifierProvider, (previous, next) {
       if (!mounted) return;
       if (next.isCodeSent && _pendingPhone.isNotEmpty) {
-        // Dismiss the bottom sheet, then navigate to OTP screen
         Navigator.of(context).popUntil((route) => route.isFirst);
         Navigator.pushNamed(context, AppRoutes.otp, arguments: {
           'verificationId': next.verificationId,
@@ -700,23 +665,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [_pageDark, _pageLight],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
+        decoration: BoxDecoration(gradient: context.pageGradient),
         child: AnimatedBuilder(
           animation: _ctrl,
           builder: (context, _) => Stack(
             children: [
-              // Floating orbs
               Positioned.fill(
                 child: CustomPaint(painter: _OrbPainter(orbs: _orbs, t: _ctrl.value)),
               ),
 
-              // Content
               SafeArea(
                 child: Column(
                   children: [
@@ -731,24 +688,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                               child: Container(
                                 width: 40, height: 40,
                                 decoration: BoxDecoration(
-                                  color: _cardSurface,
+                                  color: context.cardSurface,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: _indigo200, width: 1.2),
+                                  border: Border.all(color: context.cardBorder, width: 1.2),
                                 ),
-                                child: const Icon(Icons.arrow_back_ios_new_rounded,
-                                    color: _slateMid, size: 16),
+                                child: Icon(Icons.arrow_back_ios_new_rounded,
+                                    color: context.textSecondary, size: 16),
                               ),
                             )
                           else
                             const SizedBox(width: 40),
                           const Spacer(),
-                          // Logo pill
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                             decoration: BoxDecoration(
-                              color: _cardSurface,
+                              color: context.cardSurface,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: _indigo200, width: 1.2),
+                              border: Border.all(color: context.cardBorder, width: 1.2),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -757,14 +713,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                                   width: 18, height: 18,
                                   decoration: const BoxDecoration(
                                     shape: BoxShape.circle,
-                                    gradient: LinearGradient(colors: [_indigo, _violet]),
+                                    gradient: LinearGradient(colors: [NexColors.indigo, NexColors.violet]),
                                   ),
-                                  child: const Icon(Icons.chat_bubble_rounded,
-                                      color: Colors.white, size: 10),
+                                  child: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 10),
                                 ),
                                 const SizedBox(width: 6),
-                                const Text('NexChat',
-                                    style: TextStyle(color: _slateDark,
+                                Text('NexChat',
+                                    style: TextStyle(color: context.textPrimary,
                                         fontSize: 13, fontWeight: FontWeight.w700)),
                               ],
                             ),
@@ -775,20 +730,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                       ),
                     ),
 
-                    // Scrollable card
                     Expanded(
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
                         child: Container(
                           padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
                           decoration: BoxDecoration(
-                            color: _cardSurface.withOpacity(0.92),
+                            color: context.cardSurface.withOpacity(0.92),
                             borderRadius: BorderRadius.circular(28),
-                            border: Border.all(color: _indigo200, width: 1.2),
+                            border: Border.all(color: context.cardBorder, width: 1.2),
                             boxShadow: [
-                              BoxShadow(color: _indigo.withOpacity(0.10),
+                              BoxShadow(color: NexColors.indigo.withOpacity(0.10),
                                   blurRadius: 32, offset: const Offset(0, 12)),
-                              BoxShadow(color: _violet.withOpacity(0.06),
+                              BoxShadow(color: NexColors.violet.withOpacity(0.06),
                                   blurRadius: 48, spreadRadius: 4, offset: const Offset(0, 20)),
                             ],
                           ),
@@ -798,7 +752,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                               _StepIndicator(current: _step, total: 3),
                               const SizedBox(height: 24),
 
-                              // Title
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 250),
                                 child: Column(
@@ -806,18 +759,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(meta.title,
-                                        style: const TextStyle(fontSize: 24,
+                                        style: TextStyle(fontSize: 24,
                                             fontWeight: FontWeight.w800,
-                                            color: _slateDark, letterSpacing: -0.4)),
+                                            color: context.textPrimary, letterSpacing: -0.4)),
                                     const SizedBox(height: 4),
                                     Text(meta.subtitle,
-                                        style: const TextStyle(fontSize: 14, color: _slateMuted)),
+                                        style: TextStyle(fontSize: 14, color: context.textMuted)),
                                   ],
                                 ),
                               ),
                               const SizedBox(height: 24),
 
-                              // Step content
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 300),
                                 transitionBuilder: (child, animation) {
@@ -846,18 +798,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                       ),
                     ),
 
-                    // Already have account
                     Padding(
                       padding: const EdgeInsets.only(bottom: 20),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text('Already have an account? ',
-                              style: TextStyle(color: _slateMuted, fontSize: 13)),
+                          Text('Already have an account? ',
+                              style: TextStyle(color: context.textMuted, fontSize: 13)),
                           GestureDetector(
                             onTap: () => Navigator.pop(context),
                             child: const Text('Sign in',
-                                style: TextStyle(color: _indigo, fontSize: 13,
+                                style: TextStyle(color: NexColors.indigo, fontSize: 13,
                                     fontWeight: FontWeight.w700)),
                           ),
                         ],

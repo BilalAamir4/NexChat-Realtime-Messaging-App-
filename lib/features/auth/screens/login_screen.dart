@@ -1,21 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nexchat_real_time_messaging_app/core/theme/app_theme.dart';
 import 'package:nexchat_real_time_messaging_app/features/auth/providers/auth_provider.dart';
 import 'package:nexchat_real_time_messaging_app/routes/app_routes.dart';
-
-// ─────────────────────────────────────────────
-//  NexChat Design Tokens
-// ─────────────────────────────────────────────
-const _indigo      = Color(0xFF4F46E5);
-const _violet      = Color(0xFF7C3AED);
-const _indigo100   = Color(0xFFE0E7FF);
-const _indigo200   = Color(0xFFC7D2FE);
-const _cardSurface = Color(0xFFF7F8FF);
-const _pageDark    = Color(0xFFE8EEFF);
-const _pageLight   = Color(0xFFF0F4FF);
-const _slateDark   = Color(0xFF1E1B4B);
-const _slateMuted  = Color(0xFF94A3B8);
 
 // ─────────────────────────────────────────────
 //  Orb Data Model
@@ -33,7 +21,7 @@ class _OrbData {
 }
 
 // ─────────────────────────────────────────────
-//  Orb Painter
+//  Orb Painter — brand colors are theme-invariant
 // ─────────────────────────────────────────────
 class _OrbPainter extends CustomPainter {
   final List<_OrbData> orbs;
@@ -92,16 +80,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   final _passCtrl  = TextEditingController();
   final _formKey   = GlobalKey<FormState>();
   bool _obscure    = true;
-
-  // FIX: Holds phone number between firing sendOtp and the async codeSent
-  // callback. ref.listen in build() reads this to navigate correctly.
   String _pendingPhone = '';
 
   @override
   void initState() {
     super.initState();
     final rng    = Random(42);
-    final colors = [_indigo, _violet, const Color(0xFF6366F1), const Color(0xFF818CF8)];
+    final colors = [NexColors.indigo, NexColors.violet, const Color(0xFF6366F1), const Color(0xFF818CF8)];
     _orbs = List.generate(14, (_) => _OrbData(
       x: rng.nextDouble(), y: rng.nextDouble(),
       radius: 28 + rng.nextDouble() * 44,
@@ -123,7 +108,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     super.dispose();
   }
 
-  // ─── Sign In ─────────────────────────────────────────────────────────────
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
@@ -143,9 +127,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     }
   }
 
-  // ─── Phone Bottom Sheet ───────────────────────────────────────────────────
   void _showPhoneSheet() {
     final phoneCtrl = TextEditingController();
+    final isDark = context.isDark;
 
     showModalBottomSheet(
       context: context,
@@ -155,57 +139,54 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: Container(
           padding: const EdgeInsets.fromLTRB(28, 20, 28, 32),
-          decoration: const BoxDecoration(
-            color: _cardSurface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          decoration: BoxDecoration(
+            color: context.cardSurface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Handle
               Center(
                 child: Container(
                   width: 40, height: 4,
                   decoration: BoxDecoration(
-                    color: _indigo200,
+                    color: context.cardBorder,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
               const SizedBox(height: 24),
-
-              const Text('Verify your identity',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _slateDark)),
+              Text('Verify your identity',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: context.textPrimary)),
               const SizedBox(height: 6),
-              const Text('Enter your phone number to receive a one-time code.',
-                  style: TextStyle(fontSize: 14, color: _slateMuted)),
+              Text('Enter your phone number to receive a one-time code.',
+                  style: TextStyle(fontSize: 14, color: context.textMuted)),
               const SizedBox(height: 24),
 
               // Phone field
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: isDark ? NexColors.darkSurface : Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _indigo200, width: 1.2),
-                  boxShadow: [BoxShadow(color: _indigo.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))],
+                  border: Border.all(color: context.cardBorder, width: 1.2),
+                  boxShadow: [BoxShadow(color: NexColors.indigo.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))],
                 ),
                 child: TextField(
                   controller: phoneCtrl,
                   keyboardType: TextInputType.phone,
-                  style: const TextStyle(fontSize: 15, color: _slateDark, fontWeight: FontWeight.w500),
-                  decoration: const InputDecoration(
+                  style: TextStyle(fontSize: 15, color: context.textPrimary, fontWeight: FontWeight.w500),
+                  decoration: InputDecoration(
                     hintText: '+92 300 1234567',
-                    hintStyle: TextStyle(color: _slateMuted, fontSize: 14),
-                    prefixIcon: Icon(Icons.phone_outlined, color: _indigo, size: 20),
+                    hintStyle: TextStyle(color: context.textMuted, fontSize: 14),
+                    prefixIcon: const Icon(Icons.phone_outlined, color: NexColors.indigo, size: 20),
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   ),
                 ),
               ),
               const SizedBox(height: 24),
 
-              // Send code button
               Consumer(
                 builder: (context, ref, _) {
                   final authState = ref.watch(authNotifierProvider);
@@ -214,15 +195,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     builder: (context, _) {
                       final pulse = (sin(_ctrl.value * 2 * pi) + 1) / 2;
                       return GestureDetector(
-                        // FIX: Fire-and-forget — do NOT await and do NOT pop here.
-                        // verifyPhoneNumber callbacks fire asynchronously after this
-                        // returns, so polling state immediately after await always
-                        // sees stale data. ref.listen in build() handles navigation
-                        // once codeSent/authenticated/error actually arrives.
                         onTap: authState.isLoading ? null : () {
                           final phone = phoneCtrl.text.trim();
                           if (phone.isEmpty) return;
-                          // Store phone so ref.listen can pass it to OTP screen
                           _pendingPhone = phone;
                           ref.read(authNotifierProvider.notifier)
                               .sendOtp(phoneNumber: phone);
@@ -232,13 +207,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(16),
                             gradient: const LinearGradient(
-                              colors: [_indigo, _violet],
+                              colors: [NexColors.indigo, NexColors.violet],
                               begin: Alignment.centerLeft,
                               end: Alignment.centerRight,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: _indigo.withOpacity(0.25 + 0.20 * pulse),
+                                color: NexColors.indigo.withOpacity(0.25 + 0.20 * pulse),
                                 blurRadius: 16 + 12 * pulse,
                                 spreadRadius: pulse * 2,
                                 offset: const Offset(0, 4),
@@ -265,7 +240,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     );
   }
 
-  // ─── Error Snackbar ───────────────────────────────────────────────────────
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(message),
@@ -276,7 +250,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     ));
   }
 
-  // ─── Input Field ──────────────────────────────────────────────────────────
   Widget _field({
     required TextEditingController controller,
     required String hint,
@@ -285,22 +258,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     Widget? suffix,
     String? Function(String?)? validator,
   }) {
+    final isDark = context.isDark;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? NexColors.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _indigo200, width: 1.2),
-        boxShadow: [BoxShadow(color: _indigo.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))],
+        border: Border.all(color: context.cardBorder, width: 1.2),
+        boxShadow: [BoxShadow(color: NexColors.indigo.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 4))],
       ),
       child: TextFormField(
         controller: controller,
         obscureText: obscure,
         validator: validator,
-        style: const TextStyle(fontSize: 15, color: _slateDark, fontWeight: FontWeight.w500),
+        style: TextStyle(fontSize: 15, color: context.textPrimary, fontWeight: FontWeight.w500),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: _slateMuted, fontSize: 14),
-          prefixIcon: Icon(icon, color: _indigo.withOpacity(0.55), size: 20),
+          hintStyle: TextStyle(color: context.textMuted, fontSize: 14),
+          prefixIcon: Icon(icon, color: NexColors.indigo.withOpacity(0.55), size: 20),
           suffixIcon: suffix,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -311,7 +285,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     );
   }
 
-  // ─── Aurora Button ────────────────────────────────────────────────────────
   Widget _loginButton(bool isLoading) {
     return AnimatedBuilder(
       animation: _ctrl,
@@ -324,13 +297,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               gradient: const LinearGradient(
-                colors: [_indigo, _violet],
+                colors: [NexColors.indigo, NexColors.violet],
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: _indigo.withOpacity(0.25 + 0.20 * pulse),
+                  color: NexColors.indigo.withOpacity(0.25 + 0.20 * pulse),
                   blurRadius: 16 + 12 * pulse,
                   spreadRadius: pulse * 2,
                   offset: const Offset(0, 4),
@@ -350,7 +323,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     );
   }
 
-  // ─── Logo Mark ────────────────────────────────────────────────────────────
   Widget _logoMark() {
     return AnimatedBuilder(
       animation: _ctrl,
@@ -363,12 +335,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: const LinearGradient(
-                  colors: [_indigo, _violet],
+                  colors: [NexColors.indigo, NexColors.violet],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 boxShadow: [BoxShadow(
-                  color: _indigo.withOpacity(0.30 + 0.20 * glow),
+                  color: NexColors.indigo.withOpacity(0.30 + 0.20 * glow),
                   blurRadius: 20 + 12 * glow,
                   spreadRadius: glow * 3,
                 )],
@@ -376,12 +348,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               child: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 30),
             ),
             const SizedBox(height: 14),
-            const Text('NexChat',
+            Text('NexChat',
                 style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800,
-                    color: _slateDark, letterSpacing: -0.5)),
+                    color: context.textPrimary, letterSpacing: -0.5)),
             const SizedBox(height: 4),
-            const Text('Welcome back',
-                style: TextStyle(fontSize: 14, color: _slateMuted, letterSpacing: 0.2)),
+            Text('Welcome back',
+                style: TextStyle(fontSize: 14, color: context.textMuted, letterSpacing: 0.2)),
           ],
         );
       },
@@ -392,15 +364,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
 
-    // FIX: React to state changes reactively instead of polling after await.
-    // verifyPhoneNumber fires codeSent/error asynchronously — by the time
-    // sendOtp() returns, the state hasn't updated yet. ref.listen catches
-    // every transition so navigation always fires at the right moment.
     ref.listen<AuthState>(authNotifierProvider, (previous, next) {
       if (!mounted) return;
-
       if (next.isCodeSent && _pendingPhone.isNotEmpty) {
-        // Dismiss the bottom sheet, then navigate to OTP screen
         Navigator.of(context).popUntil((route) => route.isFirst);
         Navigator.pushNamed(context, AppRoutes.otp, arguments: {
           'verificationId': next.verificationId,
@@ -408,11 +374,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         });
         _pendingPhone = '';
       } else if (next.isAuthenticated) {
-        // Android auto-verify path: verificationCompleted fired, skip OTP screen
         Navigator.pushNamedAndRemoveUntil(
             context, AppRoutes.dashboard, (_) => false);
       } else if (next.isError && _pendingPhone.isNotEmpty) {
-        // sendOtp failed — dismiss sheet and show error on the login screen
         Navigator.of(context).popUntil((route) => route.isFirst);
         _showError(next.error ?? 'Failed to send OTP.');
         _pendingPhone = '';
@@ -422,23 +386,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [_pageDark, _pageLight],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
+        decoration: BoxDecoration(gradient: context.pageGradient),
         child: AnimatedBuilder(
           animation: _ctrl,
           builder: (context, _) => Stack(
             children: [
-              // Floating orbs
               Positioned.fill(
                 child: CustomPaint(painter: _OrbPainter(orbs: _orbs, t: _ctrl.value)),
               ),
-
-              // Card
               SafeArea(
                 child: Center(
                   child: SingleChildScrollView(
@@ -448,12 +403,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       child: Container(
                         padding: const EdgeInsets.fromLTRB(28, 36, 28, 32),
                         decoration: BoxDecoration(
-                          color: _cardSurface.withOpacity(0.92),
+                          color: context.cardSurface.withOpacity(0.92),
                           borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: _indigo200, width: 1.2),
+                          border: Border.all(color: context.cardBorder, width: 1.2),
                           boxShadow: [
-                            BoxShadow(color: _indigo.withOpacity(0.10), blurRadius: 32, offset: const Offset(0, 12)),
-                            BoxShadow(color: _violet.withOpacity(0.06), blurRadius: 48, spreadRadius: 4, offset: const Offset(0, 20)),
+                            BoxShadow(color: NexColors.indigo.withOpacity(0.10), blurRadius: 32, offset: const Offset(0, 12)),
+                            BoxShadow(color: NexColors.violet.withOpacity(0.06), blurRadius: 48, spreadRadius: 4, offset: const Offset(0, 20)),
                           ],
                         ),
                         child: Column(
@@ -463,7 +418,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             Center(child: _logoMark()),
                             const SizedBox(height: 36),
 
-                            // Email
                             _field(
                               controller: _emailCtrl,
                               hint: 'Email address',
@@ -476,7 +430,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             ),
                             const SizedBox(height: 14),
 
-                            // Password
                             _field(
                               controller: _passCtrl,
                               hint: 'Password',
@@ -491,12 +444,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                 onTap: () => setState(() => _obscure = !_obscure),
                                 child: Icon(
                                   _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                                  color: _slateMuted, size: 20,
+                                  color: context.textMuted, size: 20,
                                 ),
                               ),
                             ),
 
-                            // Forgot password
                             Align(
                               alignment: Alignment.centerRight,
                               child: TextButton(
@@ -504,27 +456,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                 style: TextButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4)),
                                 child: const Text('Forgot password?',
-                                    style: TextStyle(color: _indigo, fontSize: 13, fontWeight: FontWeight.w500)),
+                                    style: TextStyle(color: NexColors.indigo, fontSize: 13, fontWeight: FontWeight.w500)),
                               ),
                             ),
                             const SizedBox(height: 8),
 
-                            // Sign in button
                             _loginButton(authState.isLoading),
                             const SizedBox(height: 24),
 
-                            // Divider
                             Row(children: [
-                              Expanded(child: Divider(color: _indigo200, thickness: 1)),
+                              Expanded(child: Divider(color: context.cardBorder, thickness: 1)),
                               Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                                child: Text('or', style: TextStyle(color: _slateMuted, fontSize: 13)),
+                                child: Text('or', style: TextStyle(color: context.textMuted, fontSize: 13)),
                               ),
-                              Expanded(child: Divider(color: _indigo200, thickness: 1)),
+                              Expanded(child: Divider(color: context.cardBorder, thickness: 1)),
                             ]),
                             const SizedBox(height: 20),
 
-                            // Create account
                             GestureDetector(
                               onTap: () => Navigator.pushNamed(context, AppRoutes.register),
                               child: Container(
@@ -532,11 +481,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                 decoration: BoxDecoration(
                                   color: Colors.transparent,
                                   borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: _indigo200, width: 1.2),
+                                  border: Border.all(color: context.cardBorder, width: 1.2),
                                 ),
                                 alignment: Alignment.center,
                                 child: const Text('Create account',
-                                    style: TextStyle(color: _indigo, fontSize: 15,
+                                    style: TextStyle(color: NexColors.indigo, fontSize: 15,
                                         fontWeight: FontWeight.w600, letterSpacing: 0.2)),
                               ),
                             ),
