@@ -10,6 +10,7 @@ class MessageModel {
   final String? mediaUrl;
   final DateTime sentAt;
   final List<String> readBy;
+  final int? duration;
 
   const MessageModel({
     required this.msgId,
@@ -17,6 +18,7 @@ class MessageModel {
     required this.type,
     required this.content,
     this.mediaUrl,
+    this.duration,
     required this.sentAt,
     required this.readBy,
   });
@@ -33,6 +35,7 @@ class MessageModel {
       mediaUrl: data['mediaUrl'] as String?,
       sentAt:   (data['sentAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       readBy:   List<String>.from(data['readBy'] ?? []),
+      duration: data['duration'] as int?,
     );
   }
 
@@ -43,6 +46,7 @@ class MessageModel {
     'mediaUrl': mediaUrl,
     'sentAt':   FieldValue.serverTimestamp(),
     'readBy':   readBy,
+    'duration': duration,
   };
 
   MessageModel copyWith({List<String>? readBy}) => MessageModel(
@@ -53,6 +57,7 @@ class MessageModel {
     mediaUrl: mediaUrl,
     sentAt:   sentAt,
     readBy:   readBy ?? this.readBy,
+    duration: duration ?? this.duration,
   );
 
   static MessageType _typeFromString(String s) => switch (s) {

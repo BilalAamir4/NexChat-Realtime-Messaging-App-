@@ -7,18 +7,30 @@ class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  String get currentUid => _auth.currentUser!.uid;
+  // ── Null-safe UID ─────────────────────────────────────────────────────────
+
+  String get currentUid => _auth.currentUser?.uid ?? '';
 
   // ── Streams ───────────────────────────────────────────────────────────────
 
   // Stream all chats the current user is part of, ordered by last message time
   Stream<List<ChatModel>> chatsStream() {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null || uid.isEmpty) return Stream.value([]);
+
     return _firestore
         .collection('chats')
-        .where('participants', arrayContains: currentUid)
-        .orderBy('lastMessage.sentAt', descending: true)
+        .where('participants', arrayContains: uid)
         .snapshots()
-        .map((snap) => snap.docs.map(ChatModel.fromDoc).toList());
+        .map((snap) {
+      final chats = snap.docs.map(ChatModel.fromDoc).toList();
+      chats.sort((a, b) {
+        final aTime = a.lastMessage?.sentAt ?? a.createdAt;
+        final bTime = b.lastMessage?.sentAt ?? b.createdAt;
+        return bTime.compareTo(aTime);
+      });
+      return chats;
+    });
   }
 
   // Stream all messages in a chat, ordered oldest → newest
@@ -40,6 +52,9 @@ class ChatService {
     MessageType type = MessageType.text,
     String? mediaUrl,
   }) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null || uid.isEmpty) throw Exception('Not authenticated');
+
     final batch = _firestore.batch();
 
     // 1. Add message to subcollection
@@ -50,12 +65,12 @@ class ChatService {
         .doc();
 
     batch.set(msgRef, {
-      'senderId': currentUid,
+      'senderId': uid,
       'type':     _typeToString(type),
       'content':  content,
       'mediaUrl': mediaUrl,
       'sentAt':   FieldValue.serverTimestamp(),
-      'readBy':   [currentUid],
+      'readBy':   [uid],
     });
 
     // 2. Update lastMessage + increment unread for other participants
@@ -67,16 +82,16 @@ class ChatService {
 
     // Build unreadCount increments for everyone except sender
     final unreadIncrements = <String, dynamic>{};
-    for (final uid in participants) {
-      if (uid != currentUid) {
-        unreadIncrements['unreadCount.$uid'] = FieldValue.increment(1);
+    for (final p in participants) {
+      if (p != uid) {
+        unreadIncrements['unreadCount.$p'] = FieldValue.increment(1);
       }
     }
 
     batch.update(chatRef, {
       'lastMessage': {
         'text':     content,
-        'senderId': currentUid,
+        'senderId': uid,
         'sentAt':   FieldValue.serverTimestamp(),
       },
       ...unreadIncrements,
@@ -88,17 +103,12 @@ class ChatService {
   // ── Mark Messages as Read ─────────────────────────────────────────────────
 
   Future<void> markAsRead(String chatId) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null || uid.isEmpty) return;
+
     final batch = _firestore.batch();
 
-    // Get all unread messages (those where currentUid is not in readBy)
-    final unreadSnap = await _firestore
-        .collection('chats')
-        .doc(chatId)
-        .collection('messages')
-        .where('readBy', arrayContainsAny: ['__placeholder__'])
-        .get();
-
-    // Fallback: get recent messages and filter client-side
+    // Get recent messages and filter client-side
     final recentSnap = await _firestore
         .collection('chats')
         .doc(chatId)
@@ -109,9 +119,9 @@ class ChatService {
 
     for (final doc in recentSnap.docs) {
       final readBy = List<String>.from(doc.data()['readBy'] ?? []);
-      if (!readBy.contains(currentUid)) {
+      if (!readBy.contains(uid)) {
         batch.update(doc.reference, {
-          'readBy': FieldValue.arrayUnion([currentUid]),
+          'readBy': FieldValue.arrayUnion([uid]),
         });
       }
     }
@@ -119,7 +129,7 @@ class ChatService {
     // Reset unread count for current user
     batch.update(
       _firestore.collection('chats').doc(chatId),
-      {'unreadCount.$currentUid': 0},
+      {'unreadCount.$uid': 0},
     );
 
     await batch.commit();
@@ -129,11 +139,14 @@ class ChatService {
 
   // Returns existing chatId if a direct chat already exists, else creates one
   Future<String> getOrCreateDirectChat(String otherUid) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null || uid.isEmpty) throw Exception('Not authenticated');
+
     // Check if a direct chat already exists between the two users
     final existing = await _firestore
         .collection('chats')
         .where('type', isEqualTo: 'direct')
-        .where('participants', arrayContains: currentUid)
+        .where('participants', arrayContains: uid)
         .get();
 
     for (final doc in existing.docs) {
@@ -147,10 +160,10 @@ class ChatService {
     final chatRef = _firestore.collection('chats').doc();
     await chatRef.set({
       'type':         'direct',
-      'participants': [currentUid, otherUid],
+      'participants': [uid, otherUid],
       'lastMessage':  null,
       'createdAt':    FieldValue.serverTimestamp(),
-      'unreadCount':  {currentUid: 0, otherUid: 0},
+      'unreadCount':  {uid: 0, otherUid: 0},
       'groupName':    null,
     });
 
@@ -160,10 +173,13 @@ class ChatService {
   // ── Typing Indicator ──────────────────────────────────────────────────────
 
   Future<void> setTyping(String chatId, bool isTyping) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null || uid.isEmpty) return;
+
     await _firestore
         .collection('chats')
         .doc(chatId)
-        .update({'typing.$currentUid': isTyping});
+        .update({'typing.$uid': isTyping});
   }
 
   Stream<Map<String, bool>> typingStream(String chatId) {
@@ -177,6 +193,34 @@ class ChatService {
       final typingMap = data['typing'] as Map<String, dynamic>? ?? {};
       return typingMap.map((k, v) => MapEntry(k, v as bool));
     });
+  }
+
+  Future<String> createGroupChat({
+    required List<String> memberUids,
+    required String groupName,
+  }) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null || uid.isEmpty) throw Exception('Not authenticated');
+
+    // Always include the creator
+    final allMembers = [...memberUids, uid].toSet().toList();
+
+    // Build initial unreadCount map with 0 for everyone
+    final unreadCount = {for (final m in allMembers) m: 0};
+
+    final chatRef = _firestore.collection('chats').doc();
+    await chatRef.set({
+      'type':         'group',
+      'participants': allMembers,
+      'groupName':    groupName,
+      'lastMessage':  null,
+      'createdAt':    FieldValue.serverTimestamp(),
+      'unreadCount':  unreadCount,
+      'admins':       [uid],
+      'typing':       {},
+    });
+
+    return chatRef.id;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

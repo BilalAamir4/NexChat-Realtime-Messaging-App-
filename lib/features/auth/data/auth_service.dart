@@ -29,7 +29,7 @@ class AuthService {
 
       final User? user = credential.user;
       if (user == null) return null;
-
+      await user.getIdToken(true);
       await user.updateDisplayName(displayName.trim());
 
       final UserModel newUser = UserModel(
@@ -47,7 +47,7 @@ class AuthService {
       await _firestore.collection('users').doc(user.uid).set(newUser.toMap());
 
       // ── Save FCM token for newly registered user ────────────────────────
-      await NotificationService.instance.saveTokenToFirestore();
+     NotificationService.instance.saveTokenToFirestore();
 
       return newUser;
     } on FirebaseAuthException catch (e) {
@@ -68,11 +68,11 @@ class AuthService {
 
       final User? user = credential.user;
       if (user == null) return null;
-
+      await user.getIdToken(true);
       await _updateOnlineStatus(user.uid, true);
 
       // ── Save FCM token on every login ──────────────────────────────────
-      await NotificationService.instance.saveTokenToFirestore();
+     NotificationService.instance.saveTokenToFirestore();
 
       return await getUser(user.uid);
     } on FirebaseAuthException catch (e) {

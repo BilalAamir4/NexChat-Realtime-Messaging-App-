@@ -10,7 +10,7 @@ final chatServiceProvider = Provider<ChatService>((ref) => ChatService());
 // ── Chats Stream ──────────────────────────────────────────────────────────────
 
 final chatsStreamProvider = StreamProvider<List<ChatModel>>((ref) {
-  return ref.watch(chatServiceProvider).chatsStream();
+  return ref.watch(chatServiceProvider).chatsStream() .handleError((_) => <ChatModel>[]);
 });
 
 // ── Messages Stream ───────────────────────────────────────────────────────────
@@ -81,3 +81,26 @@ class TypingNotifier extends Notifier<void> {
 
 final typingNotifierProvider =
 NotifierProvider<TypingNotifier, void>(TypingNotifier.new);
+
+class CreateGroupNotifier extends AsyncNotifier<void> {
+  @override
+  Future<void> build() async {}
+
+  Future<String> createGroup({
+    required List<String> memberUids,
+    required String groupName,
+  }) async {
+    state = const AsyncLoading();
+    String chatId = '';
+    state = await AsyncValue.guard(() async {
+      chatId = await ref.read(chatServiceProvider).createGroupChat(
+        memberUids: memberUids,
+        groupName:  groupName,
+      );
+    });
+    return chatId;
+  }
+}
+
+final createGroupProvider =
+AsyncNotifierProvider<CreateGroupNotifier, void>(CreateGroupNotifier.new);

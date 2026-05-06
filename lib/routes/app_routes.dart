@@ -11,7 +11,8 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String dashboard = '/dashboard';
   static const String discover = '/discover';
-  static const String groups      = '/groups';
+  static const String groups = '/groups';
   static const String createGroup = '/create-group';
   static const String groupInfo = '/group-info';
+  static const String settings = '/settings';
 }

@@ -23,7 +23,7 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
       return ref.read(authServiceProvider).getUser(user.uid);
     },
     loading: () => null,
-    error: (_, __) => null,
+    error: (_,_) => null,
   );
 });
 

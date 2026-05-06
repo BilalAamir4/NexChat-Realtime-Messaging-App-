@@ -5,7 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-
+import 'dart:io';
+import 'package:record/record.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../services/voice_message_service.dart';
 import '../models/message_model.dart';
 import '../providers/chat_provider.dart';
 import '../../../routes/app_routes.dart';
@@ -43,6 +48,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final Map<String, Map<String, String>> _senderCache = {};
+  final AudioRecorder _recorder = AudioRecorder();
+  String? _recordingPath;
+  int _recordingSeconds = 0;
 
   String get _myUid => FirebaseAuth.instance.currentUser!.uid;
   String get _displayName => widget.isGroup
@@ -63,6 +71,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   @override
   void dispose() {
+    _recorder.dispose();
     _waveController.dispose();
     _textController.dispose();
     _scrollController.dispose();
@@ -77,6 +86,65 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         curve: Curves.easeOut,
       );
     }
+  }
+
+  Future<void> _startRecording() async {
+    final micGranted = await Permission.microphone.request();
+    if (!micGranted.isGranted) return;
+
+    final dir = await getTemporaryDirectory();
+    _recordingPath = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    _recordingSeconds = 0;
+
+    await _recorder.start(
+      const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 64000),
+      path: _recordingPath!,
+    );
+
+    setState(() => _isRecording = true);
+
+    // Tick every second for duration display
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!_isRecording) return false;
+      setState(() => _recordingSeconds++);
+      return true;
+    });
+  }
+
+  Future<void> _stopAndSendRecording() async {
+    final path = await _recorder.stop();
+    setState(() => _isRecording = false);
+
+    if (path == null || _recordingSeconds < 1) return;
+
+    final file = File(path);
+    if (!await file.exists()) return;
+
+    try {
+      await VoiceMessageService.sendVoiceMessage(
+        chatId: widget.chatId,
+        audioFile: file,
+        durationSeconds: _recordingSeconds,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to send voice message')),
+        );
+      }
+    } finally {
+      await file.delete();
+    }
+  }
+
+  Future<void> _cancelRecording() async {
+    await _recorder.stop();
+    if (_recordingPath != null) {
+      final f = File(_recordingPath!);
+      if (await f.exists()) await f.delete();
+    }
+    setState(() => _isRecording = false);
   }
 
   Future<void> _sendMessage() async {
@@ -170,7 +238,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               const SizedBox(width: 12),
               Expanded(child: _buildWaveform(isActive: true)),
               GestureDetector(
-                onTap: () => setState(() => _isRecording = false),
+                onTap: _cancelRecording,
                 child: const Icon(Icons.close, color: Colors.white70, size: 20),
               ),
             ],
@@ -215,6 +283,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
+  Widget _buildVoiceBubbleLayout({
+    required MessageModel msg,
+    required bool isMe,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      child: Row(
+        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: [
+          _VoiceBubble(
+            audioUrl: msg.mediaUrl ?? '',
+            duration: msg.duration ?? 0,
+            isMe: isMe,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBubble(MessageModel msg) {
     final isMe = msg.senderId == _myUid;
     final timeStr = DateFormat('h:mm a').format(msg.sentAt);
@@ -225,13 +312,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         builder: (context, snapshot) {
           final senderName  = snapshot.data?['name']  ?? '...';
           final senderPhoto = snapshot.data?['photo'] ?? '';
-          return _buildBubbleLayout(msg: msg, isMe: isMe, timeStr: timeStr,
-              senderName: senderName, senderPhoto: senderPhoto);
+          return msg.type == MessageType.voice
+              ? _buildVoiceBubbleLayout(msg: msg, isMe: isMe)
+              : _buildBubbleLayout(
+            msg: msg, isMe: isMe, timeStr: timeStr,
+            senderName: senderName, senderPhoto: senderPhoto,
+          );
         },
       );
     }
 
-    return _buildBubbleLayout(
+    return msg.type == MessageType.voice
+        ? _buildVoiceBubbleLayout(msg: msg, isMe: isMe)
+        : _buildBubbleLayout(
       msg: msg, isMe: isMe, timeStr: timeStr,
       senderName: isMe ? 'Me' : widget.otherUserName,
       senderPhoto: isMe ? '' : widget.otherUserAvatar,
@@ -484,8 +577,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                         final hasText = value.text.trim().isNotEmpty;
                         return GestureDetector(
                           onTap: hasText ? _sendMessage : null,
-                          onLongPressStart: hasText ? null : (_) => setState(() => _isRecording = true),
-                          onLongPressEnd: hasText ? null : (_) => setState(() => _isRecording = false),
+                          onLongPressStart: hasText ? null : (_) => _startRecording(),
+                          onLongPressEnd: hasText ? null : (_) => _stopAndSendRecording(),
                           child: Container(
                             width: 44, height: 44,
                             decoration: BoxDecoration(
@@ -623,6 +716,86 @@ class _PresenceDot extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _VoiceBubble extends StatefulWidget {
+  final String audioUrl;
+  final int duration;
+  final bool isMe;
+  const _VoiceBubble({required this.audioUrl, required this.duration, required this.isMe});
+
+  @override
+  State<_VoiceBubble> createState() => _VoiceBubbleState();
+}
+
+class _VoiceBubbleState extends State<_VoiceBubble> {
+  final AudioPlayer _player = AudioPlayer();
+  bool _isPlaying = false;
+
+  String _fmt(int s) =>
+      '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  Future<void> _toggle() async {
+    if (_isPlaying) {
+      await _player.pause();
+      setState(() => _isPlaying = false);
+    } else {
+      await _player.setUrl(widget.audioUrl);
+      _player.play();
+      setState(() => _isPlaying = true);
+      _player.playerStateStream.listen((state) {
+        if (state.processingState == ProcessingState.completed && mounted) {
+          setState(() => _isPlaying = false);
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: widget.isMe
+            ? const LinearGradient(colors: [NexColors.indigo, NexColors.violet])
+            : null,
+        color: widget.isMe ? null : context.receivedBubbleBg,
+        border: widget.isMe ? null : Border.all(color: context.receivedBubbleBorder, width: 0.8),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: NexColors.indigo.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 3))],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: _toggle,
+            child: Icon(
+              _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+              color: widget.isMe ? Colors.white : NexColors.indigo,
+              size: 32,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(Icons.mic_rounded, size: 14, color: widget.isMe ? Colors.white70 : context.textMuted),
+          const SizedBox(width: 4),
+          Text(
+            _fmt(widget.duration),
+            style: TextStyle(
+              color: widget.isMe ? Colors.white : context.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -59,3 +59,20 @@ local.properties
 # OS Junk
 Thumbs.db
 Desktop.ini
+
+lib/firebase_options.dart
+
+# Firebase
+firebase.json
+google-services.json          # root-level fallback
+**/google-services.json       # catches all locations
+
+# Generated files
+pubspec.lock                  # optional: only ignore if it's a library, not an app
+
+# Coverage
+coverage/
+lcov.info
+.firebaserc
+**/build/
+android/build/
