@@ -298,7 +298,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
-  // Discover card — gradient stays same in both themes, no changes needed
   Widget _buildDiscoverCard(BuildContext context) {
     return GestureDetector(
       onTap: () => Navigator.pushNamed(context, AppRoutes.discover),
@@ -365,22 +364,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
-  Widget _drawerTile(BuildContext context, IconData icon, String label, {String? sub, VoidCallback? onTap}) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      leading: Container(
-        width: 40, height: 40,
+  /// Builds a styled AppBar icon button with an optional notification dot.
+  Widget _appBarIconButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    bool showDot = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 38,
+        height: 38,
         decoration: BoxDecoration(
           color: context.receivedBubbleBg,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: context.cardBorder, width: 1),
         ),
-        child: Icon(icon, color: NexColors.indigo, size: 20),
+        child: Stack(
+          children: [
+            Center(child: Icon(icon, color: context.textPrimary, size: 20)),
+            if (showDot)
+              Positioned(
+                top: 7,
+                right: 7,
+                child: Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(
+                    color: NexColors.violet,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
-      title: Text(label, style: TextStyle(color: context.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
-      subtitle: sub != null ? Text(sub, style: TextStyle(color: context.textMuted, fontSize: 12)) : null,
-      trailing: Icon(Icons.chevron_right, color: context.cardBorder, size: 18),
-      onTap: onTap ?? () {},
     );
   }
 
@@ -415,83 +433,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
     return Scaffold(
       backgroundColor: context.isDark ? NexColors.darkPage : NexColors.lightPageDark,
-      drawer: Drawer(
-        backgroundColor: context.isDark ? NexColors.darkCard : const Color(0xFFEEF2FF),
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(24, 60, 24, 28),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [NexColors.indigo, NexColors.violet],
-                    begin: Alignment.topLeft, end: Alignment.bottomRight),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 68, height: 68,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: 0.15),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.45), width: 2),
-                    ),
-                    child: const Icon(Icons.person, size: 36, color: Colors.white),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    currentUser.when(data: (u) => u?.displayName ?? 'User', loading: () => '…', error: (_, __) => 'User'),
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: -0.3),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(children: [
-                    Container(width: 8, height: 8,
-                        decoration: const BoxDecoration(color: NexColors.indigo200, shape: BoxShape.circle)),
-                    const SizedBox(width: 6),
-                    const Text('Online', style: TextStyle(color: NexColors.indigo200, fontSize: 13)),
-                  ]),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            _drawerTile(context, Icons.person_outline, 'Profile',
-                sub: 'View your profile',
-                onTap: () => Navigator.pushNamed(context, AppRoutes.profile)),
-            _drawerTile(context, Icons.settings_outlined, 'Settings', sub: 'App preferences'),
-            _drawerTile(context, Icons.palette_outlined, 'Themes', sub: 'Change appearance'),
-            const Spacer(),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(children: [
-                Container(width: 8, height: 8,
-                    decoration: BoxDecoration(color: context.cardBorder, shape: BoxShape.circle)),
-                const SizedBox(width: 8),
-                Text('Version 1.0.0', style: TextStyle(color: context.textMuted, fontSize: 12)),
-              ]),
-            ),
-          ],
-        ),
-      ),
       body: Container(
         decoration: BoxDecoration(gradient: context.pageGradient),
         child: SafeArea(
           child: Column(
             children: [
-              // AppBar
+              // ── AppBar ──────────────────────────────────────────────────
               Container(
-                padding: const EdgeInsets.fromLTRB(8, 10, 16, 10),
+                padding: const EdgeInsets.fromLTRB(20, 10, 16, 10),
                 decoration: BoxDecoration(
                   color: context.isDark ? NexColors.darkCard : NexColors.lightPageLight,
                   border: Border(bottom: BorderSide(color: context.cardBorder, width: 1)),
                 ),
                 child: Row(
                   children: [
-                    Builder(
-                      builder: (ctx) => IconButton(
-                        icon: Icon(Icons.menu_rounded, color: context.textPrimary),
-                        onPressed: () => Scaffold.of(ctx).openDrawer(),
-                      ),
-                    ),
+                    // Brand
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -510,24 +466,48 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         ],
                       ),
                     ),
-                    Stack(
-                      children: [
-                        IconButton(
-                          onPressed: () {},
-                          icon: Icon(Icons.notifications_outlined, color: context.textPrimary),
+
+                    // Notification bell
+                    _appBarIconButton(
+                      icon: Icons.notifications_outlined,
+                      showDot: true,
+                      onTap: () {},
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Settings
+                    _appBarIconButton(
+                      icon: Icons.settings_outlined,
+                      onTap: () => Navigator.pushNamed(context, AppRoutes.settings),
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Profile avatar
+                    GestureDetector(
+                      onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [NexColors.indigo, NexColors.violet],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          border: Border.all(color: context.cardBorder, width: 2),
+                          boxShadow: [
+                            BoxShadow(color: NexColors.indigo.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 3)),
+                          ],
                         ),
-                        Positioned(
-                          top: 10, right: 10,
-                          child: Container(width: 8, height: 8,
-                              decoration: const BoxDecoration(color: NexColors.violet, shape: BoxShape.circle)),
-                        ),
-                      ],
+                        child: const Icon(Icons.person, color: Colors.white, size: 20),
+                      ),
                     ),
                   ],
                 ),
               ),
 
-              // Scrollable content
+              // ── Scrollable content ──────────────────────────────────────
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
@@ -588,7 +568,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 }
 
-// ── Radar mini painter — unchanged ────────────────────────────────────────────
+// ── Radar mini painter ────────────────────────────────────────────────────────
 class _RadarMiniPainter extends CustomPainter {
   final double progress;
   const _RadarMiniPainter({required this.progress});
