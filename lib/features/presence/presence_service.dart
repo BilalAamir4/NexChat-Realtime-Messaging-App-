@@ -1,10 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/widgets.dart';
 
-/// Call [PresenceService.init] once in [main] (after Firebase.initializeApp).
-/// It self-registers as a [WidgetsBindingObserver] so it reacts to
-/// foreground / background transitions for the lifetime of the app.
 class PresenceService with WidgetsBindingObserver {
   PresenceService._();
   static final PresenceService _instance = PresenceService._();
@@ -12,20 +10,25 @@ class PresenceService with WidgetsBindingObserver {
 
   final _firestore = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
+  final _rtdb = FirebaseDatabase.instance;
 
-  /// Call once after [Firebase.initializeApp], before [runApp].
+  User? _lastKnownUser; // ← fix for auth re-emission bug
+
   void init() {
     WidgetsBinding.instance.addObserver(this);
 
-    // Mark online when the auth state is first resolved (covers cold-start).
     _auth.authStateChanges().listen((user) {
-      if (user != null) {
+      // Only call _setOnline for a genuinely new login, not token refreshes
+      if (user != null && user.uid != _lastKnownUser?.uid) {
+        _lastKnownUser = user;
         _setOnline();
+      } else if (user == null) {
+        _lastKnownUser = null;
       }
     });
   }
 
-  // ── AppLifecycleState ─────────────────────────────────────────────────────
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -34,11 +37,11 @@ class PresenceService with WidgetsBindingObserver {
         _setOnline();
         break;
       case AppLifecycleState.paused:
-      case AppLifecycleState.inactive:
       case AppLifecycleState.detached:
-      case AppLifecycleState.hidden:
         _setOffline();
         break;
+      default:
+        break; // ← ignore inactive/hidden — they fire during normal use
     }
   }
 
@@ -52,25 +55,62 @@ class PresenceService with WidgetsBindingObserver {
     return _firestore.collection('users').doc(uid);
   }
 
+  DatabaseReference? get _rtdbRef {
+    final uid = _uid;
+    if (uid == null) return null;
+    return _rtdb.ref('presence/$uid');
+  }
+
   Future<void> _setOnline() async {
+    final rtdbRef = _rtdbRef;
+    if (rtdbRef == null) return;
+
     try {
+      // Tell RTDB: "if I disconnect for any reason, write this automatically"
+      await rtdbRef.onDisconnect().set({
+        'isOnline': false,
+        'lastSeen': ServerValue.timestamp,
+      });
+
+      // Now mark as online in RTDB
+      await rtdbRef.set({
+        'isOnline': true,
+        'lastSeen': ServerValue.timestamp,
+      });
+
+      // Mirror to Firestore (your presenceProvider reads from here)
       await _userDoc?.set({
         'isOnline': true,
         'lastSeen': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true)); // ← won't overwrite other fields
-    } catch (_) {}
+      }, SetOptions(merge: true));
+
+    } catch (e) {
+      debugPrint('PresenceService._setOnline error: $e');
+    }
   }
 
   Future<void> _setOffline() async {
+    final rtdbRef = _rtdbRef;
+
     try {
+      // Cancel the onDisconnect handler since we're going offline gracefully
+      await rtdbRef?.onDisconnect().cancel();
+
+      await rtdbRef?.set({
+        'isOnline': false,
+        'lastSeen': ServerValue.timestamp,
+      });
+
       await _userDoc?.set({
         'isOnline': false,
         'lastSeen': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true)); // ← same as _setOnline
-    } catch (_) {}
+      }, SetOptions(merge: true));
+
+    } catch (e) {
+      debugPrint('PresenceService._setOffline error: $e');
+    }
   }
 
-  /// Call from your sign-out flow so the user is marked offline immediately.
   Future<void> signOut() async {
     await _setOffline();
     await _auth.signOut();

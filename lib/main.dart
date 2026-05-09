@@ -10,17 +10,19 @@ final navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('Step 1: Firebase init start');
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  debugPrint('Step 2: Firebase init done');
+
   if (!kIsWeb) {
+    debugPrint('Step 3: NotificationService init start');
     await NotificationService.instance.initialize(navigatorKey);
+    debugPrint('Step 4: NotificationService init done');
   }
 
-  runApp(
-    const ProviderScope(
-      child: NexChatApp(),
-    ),
-  );
+  debugPrint('Step 5: runApp');
+  runApp(const ProviderScope(child: NexChatApp()));
 }

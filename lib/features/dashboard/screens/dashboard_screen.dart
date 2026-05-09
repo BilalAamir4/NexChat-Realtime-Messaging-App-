@@ -468,10 +468,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     ),
 
                     // Notification bell
-                    _appBarIconButton(
-                      icon: Icons.notifications_outlined,
-                      showDot: true,
-                      onTap: () {},
+                    IconButton(
+                      onPressed: () => Navigator.pushNamed(context, AppRoutes.notifications),
+                      icon: Icon(Icons.notifications_outlined, color: context.textPrimary),
                     ),
                     const SizedBox(width: 8),
 

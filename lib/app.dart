@@ -14,7 +14,7 @@ import 'package:nexchat_real_time_messaging_app/features/profile/screens/profile
 import 'package:nexchat_real_time_messaging_app/features/dashboard/screens/dashboard_screen.dart';
 import 'package:nexchat_real_time_messaging_app/features/user_discovery/screens/user_discovery.dart';
 import 'package:nexchat_real_time_messaging_app/features/chat/models/chat_model.dart';
-
+import 'package:nexchat_real_time_messaging_app/features/notifications/notifications_screen.dart';
 // Theme
 import 'package:nexchat_real_time_messaging_app/core/theme/app_theme.dart';
 import 'package:nexchat_real_time_messaging_app/core/theme/theme_provider.dart';
@@ -54,7 +54,9 @@ class NexChatApp extends ConsumerWidget {
         AppRoutes.chat:      (_) => ChatListScreen(filter: ChatType.direct),
         AppRoutes.groups:    (_) => ChatListScreen(filter: ChatType.group),
         AppRoutes.settings:  (_) => SettingsScreen(),
+        AppRoutes.notifications: (context) => NotificationsScreen(),
       },
+
       onGenerateRoute: (settings) {
         if (settings.name == AppRoutes.otp) {
           final args = settings.arguments as Map<String, dynamic>;

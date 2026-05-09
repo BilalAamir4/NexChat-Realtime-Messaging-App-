@@ -48,12 +48,13 @@ class NotificationService {
     debugPrint('🔔 Notification permission: ${settings.authorizationStatus}');
 
     // 3. Set up flutter_local_notifications (needed for foreground display)
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit = AndroidInitializationSettings('@drawable/ic_notification');
     const iosInit = DarwinInitializationSettings(
       requestAlertPermission: false, // already requested above
       requestBadgePermission: false,
       requestSoundPermission: false,
     );
+    debugPrint('🔍 icon string: ${androidInit.defaultIcon}');
     await _localNotifications.initialize(
       settings: const InitializationSettings(android: androidInit, iOS: iosInit),
       onDidReceiveNotificationResponse: (details) {
@@ -108,7 +109,17 @@ class NotificationService {
 
     // 10. Listen for token refreshes
     _fcm.onTokenRefresh.listen((_) => saveTokenToFirestore());
+
+    _fcm.onTokenRefresh.listen((_) => saveTokenToFirestore());
+
+    // 11. Force save token on every app start
+    final currentUser = _auth.currentUser;
+    if (currentUser != null) {
+      await saveTokenToFirestore();
+    }
   }
+
+
 
   // ── Save FCM Token ────────────────────────────────────────────────────────
 
@@ -116,23 +127,26 @@ class NotificationService {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
 
-    final token = await _fcm.getToken();
-    if (token == null) return;
+    try {
+      final token = await _fcm.getToken();
+      if (token == null) return;
 
-    // Store in users/{uid}/fcmTokens/{token}
-    // Using the token as the doc ID makes it easy to delete on logout.
-    await _firestore
-        .collection('users')
-        .doc(uid)
-        .collection('fcmTokens')
-        .doc(token)
-        .set({
-      'token': token,
-      'createdAt': FieldValue.serverTimestamp(),
-      'platform': _platform(),
-    });
+      await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('fcmTokens')
+          .doc(token)
+          .set({
+        'token': token,
+        'createdAt': FieldValue.serverTimestamp(),
+        'platform': _platform(),
+      });
 
-    debugPrint('✅ FCM token saved for $uid');
+      debugPrint('✅ FCM token saved for $uid');
+    } catch (e) {
+      // Silently fail — don't block the app
+      debugPrint('⚠️ FCM token save failed: $e');
+    }
   }
 
   /// Call this on sign-out so the device stops receiving notifications.
@@ -172,7 +186,7 @@ class NotificationService {
           channelDescription: _androidChannel.description,
           importance: Importance.max,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
           styleInformation: BigTextStyleInformation(notification.body ?? ''),
         ),
         iOS: const DarwinNotificationDetails(

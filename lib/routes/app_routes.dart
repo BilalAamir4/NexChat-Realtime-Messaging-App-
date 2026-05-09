@@ -15,4 +15,5 @@ class AppRoutes {
   static const String createGroup = '/create-group';
   static const String groupInfo = '/group-info';
   static const String settings = '/settings';
+  static const String notifications = '/notifications';
 }
