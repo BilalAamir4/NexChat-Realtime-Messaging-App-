@@ -1,3 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/chat_service.dart';
 import '../models/chat_model.dart';
@@ -10,7 +13,8 @@ final chatServiceProvider = Provider<ChatService>((ref) => ChatService());
 // ── Chats Stream ──────────────────────────────────────────────────────────────
 
 final chatsStreamProvider = StreamProvider<List<ChatModel>>((ref) {
-  return ref.watch(chatServiceProvider).chatsStream() .handleError((_) => <ChatModel>[]);
+  return ref.watch(chatServiceProvider).chatsStream()
+      .handleError((_) => <ChatModel>[]);
 });
 
 // ── Messages Stream ───────────────────────────────────────────────────────────
@@ -38,16 +42,23 @@ class SendMessageNotifier extends AsyncNotifier<void> {
     required String content,
     MessageType type = MessageType.text,
     String? mediaUrl,
+    String? replyToId,
+    String? replyToContent,
+    String? replyToSenderName,
+    String? replyToType,
   }) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() =>
         ref.read(chatServiceProvider).sendMessage(
-          chatId:   chatId,
-          content:  content,
-          type:     type,
-          mediaUrl: mediaUrl,
-        ),
-    );
+          chatId:            chatId,
+          content:           content,
+          type:              type,
+          mediaUrl:          mediaUrl,
+          replyToId:         replyToId,
+          replyToContent:    replyToContent,
+          replyToSenderName: replyToSenderName,
+          replyToType:       replyToType,
+        ));
   }
 }
 
@@ -82,6 +93,8 @@ class TypingNotifier extends Notifier<void> {
 final typingNotifierProvider =
 NotifierProvider<TypingNotifier, void>(TypingNotifier.new);
 
+// ── Create Group ──────────────────────────────────────────────────────────────
+
 class CreateGroupNotifier extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
@@ -104,3 +117,51 @@ class CreateGroupNotifier extends AsyncNotifier<void> {
 
 final createGroupProvider =
 AsyncNotifierProvider<CreateGroupNotifier, void>(CreateGroupNotifier.new);
+
+// ── Delete Message ────────────────────────────────────────────────────────────
+
+class DeleteMessageNotifier {
+  final Ref _ref;
+  DeleteMessageNotifier(this._ref);
+
+  Future<void> deleteForMe({
+    required String chatId,
+    required String messageId,
+    String? mediaUrl,
+  }) async {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    await FirebaseFirestore.instance
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .doc(messageId)
+        .update({
+      'deletedFor': FieldValue.arrayUnion([uid]),
+    });
+  }
+
+  Future<void> deleteForEveryone({
+    required String chatId,
+    required String messageId,
+    String? mediaUrl,
+  }) async {
+    if (mediaUrl != null && mediaUrl.isNotEmpty) {
+      try {
+        await FirebaseStorage.instance.refFromURL(mediaUrl).delete();
+      } catch (_) {}
+    }
+    await FirebaseFirestore.instance
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .doc(messageId)
+        .update({
+      'deletedForEveryone': true,
+      'content': '',
+      'mediaUrl': null,
+    });
+  }
+}
+
+final deleteMessageProvider =
+Provider<DeleteMessageNotifier>((ref) => DeleteMessageNotifier(ref));

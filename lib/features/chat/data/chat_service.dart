@@ -13,7 +13,6 @@ class ChatService {
 
   // ── Streams ───────────────────────────────────────────────────────────────
 
-  // Stream all chats the current user is part of, ordered by last message time
   Stream<List<ChatModel>> chatsStream() {
     final uid = _auth.currentUser?.uid;
     if (uid == null || uid.isEmpty) return Stream.value([]);
@@ -33,7 +32,6 @@ class ChatService {
     });
   }
 
-  // Stream all messages in a chat, ordered oldest → newest
   Stream<List<MessageModel>> messagesStream(String chatId) {
     return _firestore
         .collection('chats')
@@ -51,13 +49,16 @@ class ChatService {
     required String content,
     MessageType type = MessageType.text,
     String? mediaUrl,
+    String? replyToId,
+    String? replyToContent,
+    String? replyToSenderName,
+    String? replyToType,
   }) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null || uid.isEmpty) throw Exception('Not authenticated');
 
     final batch = _firestore.batch();
 
-    // 1. Add message to subcollection
     final msgRef = _firestore
         .collection('chats')
         .doc(chatId)
@@ -71,16 +72,20 @@ class ChatService {
       'mediaUrl': mediaUrl,
       'sentAt':   FieldValue.serverTimestamp(),
       'readBy':   [uid],
+      'deletedForEveryone': false,
+      'deletedFor': [],
+      if (replyToId != null)         'replyToId':         replyToId,
+      if (replyToContent != null)    'replyToContent':    replyToContent,
+      if (replyToSenderName != null) 'replyToSenderName': replyToSenderName,
+      if (replyToType != null)       'replyToType':       replyToType,
     });
 
-    // 2. Update lastMessage + increment unread for other participants
     final chatRef = _firestore.collection('chats').doc(chatId);
     final chatSnap = await chatRef.get();
     final participants = List<String>.from(
       (chatSnap.data()?['participants'] ?? []),
     );
 
-    // Build unreadCount increments for everyone except sender
     final unreadIncrements = <String, dynamic>{};
     for (final p in participants) {
       if (p != uid) {
@@ -108,7 +113,6 @@ class ChatService {
 
     final batch = _firestore.batch();
 
-    // Get recent messages and filter client-side
     final recentSnap = await _firestore
         .collection('chats')
         .doc(chatId)
@@ -126,7 +130,6 @@ class ChatService {
       }
     }
 
-    // Reset unread count for current user
     batch.update(
       _firestore.collection('chats').doc(chatId),
       {'unreadCount.$uid': 0},
@@ -135,14 +138,12 @@ class ChatService {
     await batch.commit();
   }
 
-  // ── Create Chat ───────────────────────────────────────────────────────────
+  // ── Create / Get Chat ─────────────────────────────────────────────────────
 
-  // Returns existing chatId if a direct chat already exists, else creates one
   Future<String> getOrCreateDirectChat(String otherUid) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null || uid.isEmpty) throw Exception('Not authenticated');
 
-    // Check if a direct chat already exists between the two users
     final existing = await _firestore
         .collection('chats')
         .where('type', isEqualTo: 'direct')
@@ -156,7 +157,6 @@ class ChatService {
       }
     }
 
-    // No existing chat — create one
     final chatRef = _firestore.collection('chats').doc();
     await chatRef.set({
       'type':         'direct',
@@ -195,6 +195,8 @@ class ChatService {
     });
   }
 
+  // ── Create Group ──────────────────────────────────────────────────────────
+
   Future<String> createGroupChat({
     required List<String> memberUids,
     required String groupName,
@@ -202,10 +204,7 @@ class ChatService {
     final uid = _auth.currentUser?.uid;
     if (uid == null || uid.isEmpty) throw Exception('Not authenticated');
 
-    // Always include the creator
     final allMembers = [...memberUids, uid].toSet().toList();
-
-    // Build initial unreadCount map with 0 for everyone
     final unreadCount = {for (final m in allMembers) m: 0};
 
     final chatRef = _firestore.collection('chats').doc();
