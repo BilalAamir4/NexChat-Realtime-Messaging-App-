@@ -71,58 +71,6 @@
 
 ---
 
-## Project Structure
-
-lib/
-├── core/
-│   ├── models/
-│   │   └── user_model.dart
-│   ├── services/
-│   │   └── notification_service.dart
-│   └── theme/
-│       ├── app_theme.dart
-│       └── theme_provider.dart
-├── features/
-│   ├── auth/
-│   │   ├── data/auth_service.dart
-│   │   ├── providers/auth_provider.dart
-│   │   └── screens/
-│   │       ├── splash_screen.dart
-│   │       ├── login_screen.dart
-│   │       ├── register_screen.dart
-│   │       └── otp_screen.dart
-│   ├── chat/
-│   │   ├── data/chat_service.dart
-│   │   ├── models/
-│   │   │   ├── chat_model.dart
-│   │   │   └── message_model.dart
-│   │   ├── providers/chat_provider.dart
-│   │   ├── screens/
-│   │   │   ├── chat_list_screen.dart
-│   │   │   ├── chat_screen.dart
-│   │   │   ├── group_creation_screen.dart
-│   │   │   └── goup_info_screen.dart
-│   │   └── services/voice_message_service.dart
-│   ├── dashboard/
-│   │   └── screens/dashboard_screen.dart
-│   ├── notifications/
-│   │   └── screens/notifications_screen.dart
-│   ├── presence/
-│   │   ├── presence_provider.dart
-│   │   └── presence_service.dart
-│   ├── profile/
-│   │   └── screens/profile_screen.dart
-│   ├── settings/
-│   │   └── screens/settings_screen.dart
-│   └── user_discovery/
-│       └── screens/user_discovery.dart
-├── routes/
-│   └── app_routes.dart
-├── app.dart
-└── main.dart
-
----
-
 ## Getting Started
 
 ### Prerequisites
