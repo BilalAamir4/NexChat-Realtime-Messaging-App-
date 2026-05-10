@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -24,7 +25,7 @@ final currentUserProvider = FutureProvider<UserModel?>((ref) async {
       return ref.read(authServiceProvider).getUser(user.uid);
     },
     loading: () => null,
-    error: (_,_) => null,
+    error: (_, _) => null,
   );
 });
 
@@ -40,6 +41,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String password,
     required String displayName,
     required String username,
+    File? profileImage,                          // ← new
   }) async {
     state = const AuthState.loading();
     try {
@@ -48,6 +50,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         password: password,
         displayName: displayName,
         username: username,
+        profileImage: profileImage,              // ← passed through
       );
       if (user != null) {
         state = const AuthState.otpPending();
@@ -71,7 +74,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
         password: password,
       );
       if (user != null) {
-        // ── On web, skip OTP if phone already verified on mobile ───────
         if (kIsWeb) {
           final bool verified = await _authService.isPhoneVerified(user.uid);
           if (verified) {
@@ -94,15 +96,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _authService.sendOtp(
       phoneNumber: phoneNumber,
       onCodeSent: (verificationId) {
-        print('📱 [AuthNotifier] codeSent → verificationId=$verificationId');
+        debugPrint('📱 [AuthNotifier] codeSent → verificationId=$verificationId');
         state = AuthState.codeSent(verificationId);
       },
       onError: (error) {
-        print('❌ [AuthNotifier] sendOtp error → $error');
+        debugPrint('❌ [AuthNotifier] sendOtp error → $error');
         state = AuthState.error(error);
       },
       onAutoVerified: () {
-        print('✅ [AuthNotifier] onAutoVerified → setting authenticated');
+        debugPrint('✅ [AuthNotifier] onAutoVerified → setting authenticated');
         state = const AuthState.authenticated();
       },
     );
@@ -115,14 +117,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }) async {
     state = const AuthState.loading();
     try {
-      print('🔵 [AuthNotifier] verifyOtp called');
+      debugPrint('🔵 [AuthNotifier] verifyOtp called');
       await _authService.verifyOtp(
         verificationId: verificationId,
         otpCode: otpCode,
       );
       state = const AuthState.authenticated();
     } catch (e) {
-      print('❌ [AuthNotifier] verifyOtp error → $e');
+      debugPrint('❌ [AuthNotifier] verifyOtp error → $e');
       state = AuthState.error(e.toString());
     }
   }

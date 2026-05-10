@@ -6,6 +6,7 @@ import 'package:nexchat_real_time_messaging_app/app.dart';
 import 'package:nexchat_real_time_messaging_app/core/services/notification_service.dart';
 import 'firebase_options.dart';
 
+
 final navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {

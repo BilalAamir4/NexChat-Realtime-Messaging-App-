@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:nexchat_real_time_messaging_app/core/models/user_model.dart';
@@ -8,11 +10,22 @@ import 'dart:async';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   // ─── Auth State Stream ───────────────────────────────────────────────────
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   User? get currentUser => _auth.currentUser;
+
+  // ─── Upload Profile Picture ───────────────────────────────────────────────
+  Future<String> _uploadProfilePicture(String uid, File image) async {
+    final ref = _storage.ref().child('profile_pictures/$uid.jpg');
+    final uploadTask = await ref.putFile(
+      image,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
+    return await uploadTask.ref.getDownloadURL();
+  }
 
   // ─── Sign Up ─────────────────────────────────────────────────────────────
   Future<UserModel?> signUp({
@@ -20,6 +33,7 @@ class AuthService {
     required String password,
     required String displayName,
     required String username,
+    File? profileImage,
   }) async {
     try {
       final UserCredential credential = await _auth
@@ -33,13 +47,25 @@ class AuthService {
       await user.getIdToken(true);
       await user.updateDisplayName(displayName.trim());
 
+      // ── Upload profile picture if provided ────────────────────────────
+      String photoUrl = '';
+      if (profileImage != null) {
+        try {
+          photoUrl = await _uploadProfilePicture(user.uid, profileImage);
+          await user.updatePhotoURL(photoUrl);
+        } catch (e) {
+          // Non-fatal — account still created, photo just won't be set
+          debugPrint('⚠️ Profile picture upload failed: $e');
+        }
+      }
+
       final UserModel newUser = UserModel(
         uid: user.uid,
         email: email.trim(),
         phoneNumber: '',
         displayName: displayName.trim(),
         username: username.trim().toLowerCase(),
-        photoUrl: '',
+        photoUrl: photoUrl,
         isOnline: true,
         lastSeen: DateTime.now(),
         createdAt: DateTime.now(),
@@ -47,7 +73,7 @@ class AuthService {
 
       await _firestore.collection('users').doc(user.uid).set(newUser.toMap());
 
-      // ── Save FCM token for newly registered user ────────────────────────
+      // ── Save FCM token for newly registered user ───────────────────────
       NotificationService.instance.saveTokenToFirestore();
 
       return newUser;
@@ -161,8 +187,6 @@ class AuthService {
   }
 
   // ─── SMS OTP — Verify Code ───────────────────────────────────────────────
-  // Web  → skipped entirely at navigation level if phoneVerified == true
-  // Mobile → always verify OTP, link if fresh, reauth if already linked
   Future<void> verifyOtp({
     required String verificationId,
     required String otpCode,
@@ -187,10 +211,7 @@ class AuthService {
 
     try {
       if (phoneAlreadyLinked) {
-        // ── Already linked: just update Firestore, skip reauth ──────────
-        // Reauthentication with phone credentials is unreliable here;
-        // the OTP being correct is sufficient — Firebase already validated it
-        // via verifyPhoneNumber. We just mark verified in Firestore.
+        // Already linked: Firestore update is sufficient
       } else {
         await currentUser.linkWithCredential(credential);
       }
@@ -202,9 +223,8 @@ class AuthService {
         'phoneNumber': refreshed?.phoneNumber ?? '',
         'lastSeen': FieldValue.serverTimestamp(),
       });
-
     } on FirebaseAuthException catch (e) {
-      print('🔴 [verifyOtp] code: ${e.code} | message: ${e.message}');
+      debugPrint('🔴 [verifyOtp] code: ${e.code} | message: ${e.message}');
       switch (e.code) {
         case 'invalid-verification-code':
           throw 'Incorrect OTP code. Please try again.';
@@ -223,10 +243,8 @@ class AuthService {
   // ─── Get User from Firestore ─────────────────────────────────────────────
   Future<UserModel?> getUser(String uid) async {
     try {
-      final DocumentSnapshot doc = await _firestore
-          .collection('users')
-          .doc(uid)
-          .get();
+      final DocumentSnapshot doc =
+      await _firestore.collection('users').doc(uid).get();
       if (!doc.exists) return null;
       return UserModel.fromMap(doc.data() as Map<String, dynamic>);
     } catch (e) {
@@ -280,7 +298,8 @@ class AuthService {
       case 'missing-client-identifier':
         return 'App verification failed. Check SHA fingerprint config.';
       default:
-        print('🔴 Unhandled Firebase error → code: ${e.code} | message: ${e.message}');
+        debugPrint(
+            '🔴 Unhandled Firebase error → code: ${e.code} | message: ${e.message}');
         return 'Something went wrong. Please try again.';
     }
   }
