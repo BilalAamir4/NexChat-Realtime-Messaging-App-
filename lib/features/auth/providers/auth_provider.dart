@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:nexchat_real_time_messaging_app/core/models/user_model.dart';
-import 'package:nexchat_real_time_messaging_app/features/auth/data/auth_service.dart';
+import 'package:nexchat_real_time_messaging_app/features/auth/services/auth_service.dart';
 
 // ─── Auth Service Provider ────────────────────────────────────────────────────
 final authServiceProvider = Provider<AuthService>((ref) {
@@ -38,7 +39,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String email,
     required String password,
     required String displayName,
-    required String username,   // ← already added
+    required String username,
   }) async {
     state = const AuthState.loading();
     try {
@@ -46,7 +47,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         email: email,
         password: password,
         displayName: displayName,
-        username: username,     // ← already added
+        username: username,
       );
       if (user != null) {
         state = const AuthState.otpPending();
@@ -70,6 +71,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
         password: password,
       );
       if (user != null) {
+        // ── On web, skip OTP if phone already verified on mobile ───────
+        if (kIsWeb) {
+          final bool verified = await _authService.isPhoneVerified(user.uid);
+          if (verified) {
+            state = const AuthState.authenticated();
+            return;
+          }
+        }
         state = const AuthState.otpPending();
       } else {
         state = const AuthState.error('Sign in failed. Please try again.');
@@ -80,10 +89,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   // ─── Send OTP ───────────────────────────────────────────────────────────
-  // FIX: Added onAutoVerified callback. If Android auto-verifies the phone
-  // (verificationCompleted fires), we jump straight to authenticated state
-  // without waiting for the user to type a code — avoiding the race condition
-  // where verificationCompleted consumes the credential before manual entry.
   Future<void> sendOtp({required String phoneNumber}) async {
     state = const AuthState.loading();
     await _authService.sendOtp(
@@ -96,7 +101,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
         print('❌ [AuthNotifier] sendOtp error → $error');
         state = AuthState.error(error);
       },
-      // FIX: Android auto-verify path — go straight to authenticated
       onAutoVerified: () {
         print('✅ [AuthNotifier] onAutoVerified → setting authenticated');
         state = const AuthState.authenticated();
