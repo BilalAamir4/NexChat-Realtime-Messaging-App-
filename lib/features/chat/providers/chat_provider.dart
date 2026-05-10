@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/chat_service.dart';
+import '../services/chat_service.dart';
 import '../models/chat_model.dart';
 import '../models/message_model.dart';
 

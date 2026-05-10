@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:nexchat_real_time_messaging_app/core/models/user_model.dart';
 import 'package:nexchat_real_time_messaging_app/core/services/notification_service.dart';
 import 'dart:async';
@@ -47,7 +48,7 @@ class AuthService {
       await _firestore.collection('users').doc(user.uid).set(newUser.toMap());
 
       // ── Save FCM token for newly registered user ────────────────────────
-     NotificationService.instance.saveTokenToFirestore();
+      NotificationService.instance.saveTokenToFirestore();
 
       return newUser;
     } on FirebaseAuthException catch (e) {
@@ -72,7 +73,7 @@ class AuthService {
       await _updateOnlineStatus(user.uid, true);
 
       // ── Save FCM token on every login ──────────────────────────────────
-     NotificationService.instance.saveTokenToFirestore();
+      NotificationService.instance.saveTokenToFirestore();
 
       return await getUser(user.uid);
     } on FirebaseAuthException catch (e) {
@@ -93,6 +94,17 @@ class AuthService {
       await _auth.signOut();
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
+    }
+  }
+
+  // ─── Check if phone is already verified ──────────────────────────────────
+  Future<bool> isPhoneVerified(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      if (!doc.exists) return false;
+      return (doc.data() as Map<String, dynamic>)['phoneVerified'] == true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -149,46 +161,63 @@ class AuthService {
   }
 
   // ─── SMS OTP — Verify Code ───────────────────────────────────────────────
+  // Web  → skipped entirely at navigation level if phoneVerified == true
+  // Mobile → always verify OTP, link if fresh, reauth if already linked
   Future<void> verifyOtp({
     required String verificationId,
     required String otpCode,
   }) async {
+    // Web should never reach here — guarded at router/navigation level
+    if (kIsWeb) {
+      throw 'OTP verification is not supported on web. '
+          'Please verify your phone number on the mobile app.';
+    }
+
     final PhoneAuthCredential credential = PhoneAuthProvider.credential(
       verificationId: verificationId,
       smsCode: otpCode,
     );
 
+    final User? currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      throw Exception('No signed-in user found. Please sign in again.');
+    }
+
+    final bool phoneAlreadyLinked = currentUser.providerData
+        .any((p) => p.providerId == 'phone');
+
     try {
-      final User? currentUser = _auth.currentUser;
-      if (currentUser == null) {
-        throw Exception('No signed-in user found. Please sign in again.');
+      if (phoneAlreadyLinked) {
+        // Phone already linked — reauthenticate to validate the code
+        await currentUser.reauthenticateWithCredential(credential);
+      } else {
+        // Fresh link — link phone to this account
+        await currentUser.linkWithCredential(credential);
       }
 
-      await currentUser.linkWithCredential(credential);
+      // ── Mark verified in Firestore ──────────────────────────────────
       await currentUser.reload();
       final User? refreshed = _auth.currentUser;
-
       await _firestore.collection('users').doc(currentUser.uid).update({
         'phoneVerified': true,
         'phoneNumber': refreshed?.phoneNumber ?? '',
         'lastSeen': FieldValue.serverTimestamp(),
       });
+
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'provider-already-linked') {
-        final User? user = _auth.currentUser;
-        if (user != null) {
-          await _firestore.collection('users').doc(user.uid).update({
-            'phoneVerified': true,
-            'lastSeen': FieldValue.serverTimestamp(),
-          });
-        }
-        return;
+      print('🔴 [verifyOtp] code: ${e.code} | message: ${e.message}');
+      switch (e.code) {
+        case 'invalid-verification-code':
+          throw 'Incorrect OTP code. Please try again.';
+        case 'session-expired':
+        case 'invalid-verification-id':
+          throw 'Session expired. Please request a new OTP code.';
+        case 'credential-already-in-use':
+        case 'account-exists-with-different-credential':
+          throw 'This phone number is already connected to another account.';
+        default:
+          throw _handleAuthException(e);
       }
-      if (e.code == 'credential-already-in-use' ||
-          e.code == 'account-exists-with-different-credential') {
-        throw 'This phone number is already connected to an account.';
-      }
-      throw _handleAuthException(e);
     }
   }
 
@@ -241,6 +270,8 @@ class AuthService {
         return 'This phone number is already linked to another account.';
       case 'session-expired':
         return 'OTP session expired. Please request a new code.';
+      case 'invalid-verification-id':
+        return 'Session expired. Please request a new OTP code.';
       case 'quota-exceeded':
         return 'SMS quota exceeded. Please try again later.';
       case 'billing-not-enabled':
@@ -250,6 +281,7 @@ class AuthService {
       case 'missing-client-identifier':
         return 'App verification failed. Check SHA fingerprint config.';
       default:
+        print('🔴 Unhandled Firebase error → code: ${e.code} | message: ${e.message}');
         return 'Something went wrong. Please try again.';
     }
   }

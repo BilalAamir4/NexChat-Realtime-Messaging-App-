@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/message_model.dart';
 import '../models/chat_model.dart';
+import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -195,6 +197,42 @@ class ChatService {
     });
   }
 
+  Future<void> sendImageMessage({
+    required String chatId,
+    required File imageFile,
+    String? replyToId,
+    String? replyToContent,
+    String? replyToSenderName,
+    String? replyToType,
+  }) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null || uid.isEmpty) throw Exception('Not authenticated');
+
+    // Upload to Firebase Storage
+    final ref = FirebaseStorage.instance
+        .ref()
+        .child('chat_images')
+        .child(chatId)
+        .child('${DateTime.now().millisecondsSinceEpoch}_$uid.jpg');
+
+    await ref.putFile(
+      imageFile,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
+    final url = await ref.getDownloadURL();
+
+    await sendMessage(
+      chatId: chatId,
+      content: '📷 Photo',
+      type: MessageType.image,
+      mediaUrl: url,
+      replyToId: replyToId,
+      replyToContent: replyToContent,
+      replyToSenderName: replyToSenderName,
+      replyToType: replyToType,
+    );
+  }
+
   // ── Create Group ──────────────────────────────────────────────────────────
 
   Future<String> createGroupChat({
@@ -230,3 +268,4 @@ class ChatService {
     MessageType.text  => 'text',
   };
 }
+

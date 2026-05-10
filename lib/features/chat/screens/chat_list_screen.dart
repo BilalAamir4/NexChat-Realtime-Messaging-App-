@@ -295,121 +295,23 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   }
 
   void _openSearchSheet() {
+    final chats = ref.read(chatsStreamProvider).value ?? [];
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          maxChildSize: 0.9,
-          minChildSize: 0.4,
-          builder: (context, scrollController) {
-            return Container(
-              decoration: BoxDecoration(
-                color: context.cardSurface,
-                borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(28)),
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
-                  Container(
-                    width: 44,
-                    height: 4,
-                    decoration: BoxDecoration(
-                        color: context.cardBorder,
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text('Search conversations',
-                          style: TextStyle(
-                              color: context.textPrimary,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16)),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: TextField(
-                      cursorColor: NexColors.indigo,
-                      style: TextStyle(color: context.textPrimary),
-                      decoration: InputDecoration(
-                        hintText: 'Search conversations...',
-                        hintStyle: TextStyle(color: context.textMuted),
-                        prefixIcon:
-                        const Icon(Icons.search, color: NexColors.indigo),
-                        filled: true,
-                        fillColor: context.isDark
-                            ? NexColors.darkSurface
-                            : NexColors.lightCardSurface,
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                                color: context.cardBorder, width: 1)),
-                        enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                                color: context.cardBorder, width: 1)),
-                        focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: const BorderSide(
-                                color: NexColors.indigo, width: 1.8)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Divider(
-                      color: context.cardBorder.withValues(alpha: 0.5),
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: ListView(
-                      controller: scrollController,
-                      children: [
-                        _buildSearchResult('Alex Morgan'),
-                        _buildSearchResult('Sarah Lee'),
-                        _buildSearchResult('Dev Team'),
-                        _buildSearchResult('John Doe'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+        return _SearchSheet(
+          chats: chats,
+          myUid: _myUid,
+          fetchUserInfo: _fetchUserInfo,
+          buildAvatar: _buildAvatar,
         );
       },
     );
   }
 
-  Widget _buildSearchResult(String name) {
-    return ListTile(
-      contentPadding:
-      const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      leading: _buildAvatar(radius: 21, name: name),
-      title: Text(name,
-          style: TextStyle(
-              color: context.textPrimary,
-              fontWeight: FontWeight.w600,
-              fontSize: 14)),
-      subtitle: Text('Tap to open chat',
-          style: TextStyle(color: context.textMuted, fontSize: 12)),
-      trailing: Icon(Icons.chevron_right, color: context.cardBorder),
-      onTap: () => Navigator.pop(context),
-    );
-  }
-
-  // ─────────────────────────────────────────────
-  //  Polished Drawer
-  // ─────────────────────────────────────────────
   Widget _buildDrawer() {
     final isDark = context.isDark;
 
@@ -418,12 +320,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       isDark ? NexColors.darkCard : const Color(0xFFF4F6FF),
       child: Column(
         children: [
-          // ── Header ──────────────────────────────────
           _DrawerHeader(),
-
           const SizedBox(height: 8),
-
-          // ── Nav items ───────────────────────────────
           _drawerTile(
             icon: Icons.person_outline_rounded,
             label: 'Profile',
@@ -442,10 +340,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
               Navigator.pushNamed(context, AppRoutes.settings);
             },
           ),
-
           const Spacer(),
-
-          // ── Footer ──────────────────────────────────
           _buildDrawerFooter(),
         ],
       ),
@@ -543,7 +438,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
             ),
             child: Row(
               children: [
-                // Icon container with left accent bar
                 Stack(
                   children: [
                     Container(
@@ -555,7 +449,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                       ),
                       child: Icon(icon, color: NexColors.indigo, size: 20),
                     ),
-                    // Left accent bar
                     Positioned(
                       left: 0,
                       top: 6,
@@ -622,7 +515,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       backgroundColor:
       context.isDark ? NexColors.darkPage : NexColors.lightPageDark,
       drawer: _buildDrawer(),
-
       bottomNavigationBar: Container(
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
         height: 66,
@@ -686,8 +578,8 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                           offset: const Offset(0, 4))
                     ],
                   ),
-                  child:
-                  const Icon(Icons.search_rounded, color: Colors.white, size: 22),
+                  child: const Icon(Icons.search_rounded,
+                      color: Colors.white, size: 22),
                 ),
               ),
               GestureDetector(
@@ -720,7 +612,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           ),
         ),
       ),
-
       floatingActionButton: isGroupsScreen
           ? FloatingActionButton(
           onPressed: () => showCreateGroupSheet(context),
@@ -728,16 +619,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
           child:
           const Icon(Icons.group_add_rounded, color: Colors.white))
           : null,
-
       body: Container(
         decoration: BoxDecoration(gradient: context.pageGradient),
         child: SafeArea(
           child: Column(
             children: [
-              // ── AppBar ─────────────────────────────────
               _buildAppBar(),
-
-              // Section label
               chatsAsync.when(
                 loading: () => const SizedBox.shrink(),
                 error: (_, __) => const SizedBox.shrink(),
@@ -768,8 +655,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                   );
                 },
               ),
-
-              // Chat list
               Expanded(
                 child: chatsAsync.when(
                   loading: () => const Center(
@@ -813,8 +698,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
                     }
 
                     return ListView.builder(
-                      padding:
-                      const EdgeInsets.only(top: 4, bottom: 12),
+                      padding: const EdgeInsets.only(top: 4, bottom: 12),
                       itemCount: filtered.length,
                       itemBuilder: (context, index) {
                         final chat = filtered[index];
@@ -843,9 +727,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
     );
   }
 
-  // ─────────────────────────────────────────────
-  //  AppBar — lean: hamburger | title | bell
-  // ─────────────────────────────────────────────
   Widget _buildAppBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 10, 12, 10),
@@ -856,15 +737,12 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       ),
       child: Row(
         children: [
-          // Hamburger
           Builder(
             builder: (ctx) => IconButton(
               icon: Icon(Icons.menu_rounded, color: context.textPrimary),
               onPressed: () => Scaffold.of(ctx).openDrawer(),
             ),
           ),
-
-          // Title block
           Expanded(
             child: GestureDetector(
               onTap: () => Navigator.pushReplacementNamed(
@@ -895,14 +773,11 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
               ),
             ),
           ),
-
-          // Notification bell only — no profile icon
           Stack(
             children: [
               IconButton(
-                onPressed: () {},
-                icon: Icon(Icons.notifications_outlined,
-                    color: context.textPrimary),
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.notifications),
+                icon: Icon(Icons.notifications_outlined, color: context.textPrimary),
               ),
               Positioned(
                 top: 10,
@@ -922,17 +797,13 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Drawer Header — self-contained widget, avoids BuildContext issues
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Drawer Header ─────────────────────────────────────────────────────────────
 class _DrawerHeader extends ConsumerWidget {
   const _DrawerHeader();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = context.isDark;
-
-    // Pull real user data if available
     final user = FirebaseAuth.instance.currentUser;
     final displayName = user?.displayName ?? 'Bilal';
     final photoUrl = user?.photoURL ?? '';
@@ -956,11 +827,9 @@ class _DrawerHeader extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Avatar with gradient ring + online badge
           Stack(
             clipBehavior: Clip.none,
             children: [
-              // Gradient ring
               Container(
                 width: 70,
                 height: 70,
@@ -1003,8 +872,6 @@ class _DrawerHeader extends ConsumerWidget {
                   ),
                 ),
               ),
-
-              // Online badge — bottom-right of avatar
               Positioned(
                 bottom: 2,
                 right: 0,
@@ -1012,11 +879,10 @@ class _DrawerHeader extends ConsumerWidget {
                   padding:
                   const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF22C55E), // green-500
+                    color: const Color(0xFF22C55E),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color:
-                      isDark ? NexColors.darkSurface : Colors.white,
+                      color: isDark ? NexColors.darkSurface : Colors.white,
                       width: 1.5,
                     ),
                     boxShadow: [
@@ -1040,10 +906,7 @@ class _DrawerHeader extends ConsumerWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 14),
-
-          // Name
           Text(
             displayName,
             style: TextStyle(
@@ -1053,10 +916,7 @@ class _DrawerHeader extends ConsumerWidget {
               letterSpacing: -0.4,
             ),
           ),
-
           const SizedBox(height: 4),
-
-          // Phone / email sub-line
           Row(
             children: [
               Icon(Icons.phone_outlined, size: 12, color: context.textMuted),
@@ -1073,6 +933,227 @@ class _DrawerHeader extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Search Sheet ──────────────────────────────────────────────────────────────
+class _SearchSheet extends StatefulWidget {
+  final List<ChatModel> chats;
+  final String myUid;
+  final Future<Map<String, String>> Function(String uid) fetchUserInfo;
+  final Widget Function({
+  double radius,
+  String? photoUrl,
+  String? name,
+  bool isGroup,
+  }) buildAvatar;
+
+  const _SearchSheet({
+    required this.chats,
+    required this.myUid,
+    required this.fetchUserInfo,
+    required this.buildAvatar,
+  });
+
+  @override
+  State<_SearchSheet> createState() => _SearchSheetState();
+}
+
+class _SearchSheetState extends State<_SearchSheet> {
+  String _query = '';
+  final Map<String, Map<String, String>> _cache = {};
+
+  Future<Map<String, String>> _info(String uid) async {
+    if (_cache.containsKey(uid)) return _cache[uid]!;
+    final result = await widget.fetchUserInfo(uid);
+    _cache[uid] = result;
+    return result;
+  }
+
+  List<ChatModel> get _filtered {
+    if (_query.isEmpty) return widget.chats;
+    final q = _query.toLowerCase();
+    return widget.chats.where((chat) {
+      if (chat.type == ChatType.group) {
+        return (chat.groupName ?? '').toLowerCase().contains(q);
+      }
+      return true; // direct chats filtered after name is fetched
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      maxChildSize: 0.9,
+      minChildSize: 0.4,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: context.cardSurface,
+            borderRadius:
+            const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: context.cardBorder,
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Search conversations',
+                      style: TextStyle(
+                          color: context.textPrimary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  autofocus: true,
+                  cursorColor: NexColors.indigo,
+                  style: TextStyle(color: context.textPrimary),
+                  onChanged: (val) => setState(() => _query = val),
+                  decoration: InputDecoration(
+                    hintText: 'Search conversations...',
+                    hintStyle: TextStyle(color: context.textMuted),
+                    prefixIcon:
+                    const Icon(Icons.search, color: NexColors.indigo),
+                    filled: true,
+                    fillColor: context.isDark
+                        ? NexColors.darkSurface
+                        : NexColors.lightCardSurface,
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide:
+                        BorderSide(color: context.cardBorder, width: 1)),
+                    enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide:
+                        BorderSide(color: context.cardBorder, width: 1)),
+                    focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(
+                            color: NexColors.indigo, width: 1.8)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Divider(
+                  color: context.cardBorder.withValues(alpha: 0.5),
+                  height: 1,
+                  indent: 16,
+                  endIndent: 16),
+              const SizedBox(height: 8),
+              Expanded(
+                child: _filtered.isEmpty
+                    ? Center(
+                  child: Text('No conversations found',
+                      style: TextStyle(
+                          color: context.textMuted, fontSize: 14)),
+                )
+                    : ListView.builder(
+                  controller: scrollController,
+                  itemCount: _filtered.length,
+                  itemBuilder: (context, index) {
+                    final chat = _filtered[index];
+                    final isGroup = chat.type == ChatType.group;
+
+                    if (isGroup) {
+                      final name = chat.groupName ?? 'Group';
+                      return _buildResult(
+                        context: context,
+                        chat: chat,
+                        name: name,
+                        photoUrl: '',
+                        isGroup: true,
+                      );
+                    }
+
+                    final otherUid = chat.otherUserId(widget.myUid);
+                    return FutureBuilder<Map<String, String>>(
+                      future: _info(otherUid),
+                      builder: (context, snapshot) {
+                        final name = snapshot.data?['name'] ?? '...';
+                        final photo = snapshot.data?['photo'] ?? '';
+
+                        if (_query.isNotEmpty &&
+                            snapshot.hasData &&
+                            !name
+                                .toLowerCase()
+                                .contains(_query.toLowerCase())) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return _buildResult(
+                          context: context,
+                          chat: chat,
+                          name: name,
+                          photoUrl: photo,
+                          isGroup: false,
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildResult({
+    required BuildContext context,
+    required ChatModel chat,
+    required String name,
+    required String photoUrl,
+    required bool isGroup,
+  }) {
+    return ListTile(
+      contentPadding:
+      const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      leading: widget.buildAvatar(
+        radius: 21,
+        photoUrl: photoUrl,
+        name: name,
+        isGroup: isGroup,
+      ),
+      title: Text(name,
+          style: TextStyle(
+              color: context.textPrimary,
+              fontWeight: FontWeight.w600,
+              fontSize: 14)),
+      subtitle: Text(isGroup ? 'Group' : 'Direct message',
+          style: TextStyle(color: context.textMuted, fontSize: 12)),
+      trailing: Icon(Icons.chevron_right, color: context.cardBorder),
+      onTap: () {
+        Navigator.pop(context);
+        Navigator.pushNamed(
+          context,
+          AppRoutes.chatRoom,
+          arguments: {
+            'chatId': chat.chatId,
+            'otherUserId': isGroup ? '' : chat.otherUserId(widget.myUid),
+            'otherUserName': name,
+            'otherUserAvatar': photoUrl,
+            'isGroup': isGroup,
+            'groupName': chat.groupName,
+          },
+        );
+      },
     );
   }
 }

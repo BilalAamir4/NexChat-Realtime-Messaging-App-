@@ -8,13 +8,16 @@ class VoiceMessageService {
     required String chatId,
     required File audioFile,
     required int durationSeconds,
+    String? replyToId,
+    String? replyToContent,
+    String? replyToSenderName,
+    String? replyToType,
   }) async {
     final user = FirebaseAuth.instance.currentUser!;
     final fileName = '${DateTime.now().millisecondsSinceEpoch}_${user.uid}.m4a';
     final storageRef = FirebaseStorage.instance
-        .ref('audio/voiceMessages/$chatId/$fileName');
+        .ref('voice_messages/$chatId/$fileName');
 
-    // Single upload — no loops
     await storageRef.putFile(
       audioFile,
       SettableMetadata(contentType: 'audio/m4a'),
@@ -26,13 +29,19 @@ class VoiceMessageService {
         .doc(chatId)
         .collection('messages')
         .add({
-      'type': 'voice',
-      'mediaUrl': audioUrl,
-      'duration': durationSeconds,
-      'content': '',
-      'senderId': user.uid,
-      'sentAt': FieldValue.serverTimestamp(),
-      'readBy': [user.uid],
+      'type':               'voice',
+      'mediaUrl':           audioUrl,
+      'duration':           durationSeconds,
+      'content':            '',
+      'senderId':           user.uid,
+      'sentAt':             FieldValue.serverTimestamp(),
+      'readBy':             [user.uid],
+      'deletedForEveryone': false,
+      'deletedFor':         [],
+      if (replyToId != null)         'replyToId':         replyToId,
+      if (replyToContent != null)    'replyToContent':    replyToContent,
+      if (replyToSenderName != null) 'replyToSenderName': replyToSenderName,
+      if (replyToType != null)       'replyToType':       replyToType,
     });
   }
 }
