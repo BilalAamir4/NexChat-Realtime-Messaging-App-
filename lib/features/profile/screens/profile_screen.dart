@@ -32,7 +32,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    // Load user doc + devices subcollection in parallel
     final results = await Future.wait([
       FirebaseFirestore.instance.collection('users').doc(uid).get(),
       FirebaseFirestore.instance
@@ -100,6 +99,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // ─── Open edit sheet ─────────────────────────────────────────────────────
+
+  Future<void> _openEditSheet() async {
+    if (_user == null) return;
+    final updated = await showEditProfileSheet(context, _user!);
+    if (updated != null && mounted) {
+      setState(() => _user = updated);
+    }
+  }
+
   // ─── Sub-widgets ──────────────────────────────────────────────────────────
 
   Widget _statCard(String value, String label) {
@@ -137,7 +146,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _sectionHeader(String title, {String? action, VoidCallback? onAction}) {
+  Widget _sectionHeader(String title,
+      {String? action, VoidCallback? onAction}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 10),
       child: Row(
@@ -181,7 +191,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               : null,
           color: filled ? null : context.cardSurface,
           borderRadius: BorderRadius.circular(30),
-          border: filled ? null : Border.all(color: context.cardBorder, width: 1),
+          border: filled
+              ? null
+              : Border.all(color: context.cardBorder, width: 1),
           boxShadow: filled
               ? [
             BoxShadow(
@@ -238,8 +250,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: context.cardBorder, width: 1),
             ),
-            child: Icon(_deviceIcon(device.type),
-                color: NexColors.indigo, size: 22),
+            child:
+            Icon(_deviceIcon(device.type), color: NexColors.indigo, size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -253,15 +265,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         fontSize: 14)),
                 const SizedBox(height: 3),
                 Text(_formatLastActive(device.lastActive),
-                    style:
-                    TextStyle(color: context.textMuted, fontSize: 12)),
+                    style: TextStyle(color: context.textMuted, fontSize: 12)),
               ],
             ),
           ),
-          // Badge: "This device" if current, else "Active"
           Container(
-            padding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: device.isCurrentDevice
                   ? NexColors.indigo.withValues(alpha: 0.12)
@@ -286,7 +295,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// Media tile — image if URL provided, gradient placeholder otherwise
   Widget _mediaTile(int index, String? url) {
     final gradients = [
       [NexColors.indigo, NexColors.violet],
@@ -325,7 +333,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ? ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: Image.network(url,
-            width: 80, height: 90, fit: BoxFit.cover,
+            width: 80,
+            height: 90,
+            fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => Center(
               child: Icon(Icons.broken_image_outlined,
                   color: Colors.white.withValues(alpha: 0.6),
@@ -351,7 +361,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final hasMedia = (_user?.mediaUrls.isNotEmpty ?? false);
-    // Show 8 placeholder tiles if no media loaded yet
     final mediaTileCount = hasMedia ? _user!.mediaUrls.length : 8;
 
     return Scaffold(
@@ -361,7 +370,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         decoration: BoxDecoration(gradient: context.pageGradient),
         child: CustomScrollView(
           slivers: [
-            // ── App Bar ────────────────────────────────────────────────────
+            // ── App Bar ────────────────────────────────────────────────
             SliverAppBar(
               expandedHeight: 220,
               pinned: true,
@@ -419,43 +428,92 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ),
                     ),
-                    // Avatar
+                    // Avatar — tappable with camera badge
                     Positioned(
                       bottom: 0,
                       left: 0,
                       right: 0,
                       child: Column(
                         children: [
-                          Container(
-                            width: 88,
-                            height: 88,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: const LinearGradient(
-                                  colors: [
-                                    NexColors.indigo,
-                                    NexColors.violet
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight),
-                              border:
-                              Border.all(color: Colors.white, width: 3),
-                              boxShadow: [
-                                BoxShadow(
-                                    color: NexColors.indigo
-                                        .withValues(alpha: 0.35),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 6))
+                          GestureDetector(
+                            onTap: _openEditSheet,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                // Avatar circle
+                                Container(
+                                  width: 88,
+                                  height: 88,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient:
+                                    (_user?.photoUrl.isNotEmpty ?? false)
+                                        ? null
+                                        : const LinearGradient(
+                                        colors: [
+                                          NexColors.indigo,
+                                          NexColors.violet
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight),
+                                    border: Border.all(
+                                        color: Colors.white, width: 3),
+                                    boxShadow: [
+                                      BoxShadow(
+                                          color: NexColors.indigo
+                                              .withValues(alpha: 0.35),
+                                          blurRadius: 20,
+                                          offset: const Offset(0, 6))
+                                    ],
+                                  ),
+                                  child: (_user?.photoUrl.isNotEmpty ?? false)
+                                      ? ClipOval(
+                                      child: Image.network(
+                                          _user!.photoUrl,
+                                          width: 88,
+                                          height: 88,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                          const Icon(Icons.person,
+                                              color: Colors.white,
+                                              size: 44)))
+                                      : const Icon(Icons.person,
+                                      color: Colors.white, size: 44),
+                                ),
+                                // Camera badge
+                                Positioned(
+                                  bottom: 0,
+                                  right: -2,
+                                  child: Container(
+                                    width: 28,
+                                    height: 28,
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                          colors: [
+                                            NexColors.indigo,
+                                            NexColors.violet
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                          color: Colors.white, width: 2),
+                                      boxShadow: [
+                                        BoxShadow(
+                                            color: NexColors.indigo
+                                                .withValues(alpha: 0.4),
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 2)),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                        Icons.camera_alt_rounded,
+                                        color: Colors.white,
+                                        size: 14),
+                                  ),
+                                ),
                               ],
                             ),
-                            child: (_user?.photoUrl.isNotEmpty ?? false)
-                                ? ClipOval(
-                                child: Image.network(_user!.photoUrl,
-                                    width: 88,
-                                    height: 88,
-                                    fit: BoxFit.cover))
-                                : const Icon(Icons.person,
-                                color: Colors.white, size: 44),
                           ),
                         ],
                       ),
@@ -465,7 +523,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            // ── Body ───────────────────────────────────────────────────────
+            // ── Body ───────────────────────────────────────────────────
             SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -515,9 +573,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   shape: BoxShape.circle)),
                           const SizedBox(width: 6),
                           Text(
-                              (_user?.isOnline ?? false)
-                                  ? 'Online'
-                                  : 'Offline',
+                              (_user?.isOnline ?? false) ? 'Online' : 'Offline',
                               style: TextStyle(
                                   color: context.textSecondary,
                                   fontSize: 12,
@@ -543,12 +599,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _pillButton(
                         icon: Icons.edit_outlined,
                         label: 'Edit',
-                        onTap: _user == null ? null : () async {
-                          final updated = await showEditProfileSheet(context, _user!);
-                          if (updated != null && mounted) {
-                            setState(() => _user = updated);   // updates UI instantly, no reload needed
-                          }
-                        },
+                        onTap: _openEditSheet,
                       ),
                       const SizedBox(width: 10),
                       _pillButton(
@@ -556,7 +607,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
 
-                  // ── ABOUT ────────────────────────────────────────────────
+                  // ── ABOUT ────────────────────────────────────────────
                   _sectionHeader('ABOUT'),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -566,8 +617,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       decoration: BoxDecoration(
                         color: context.cardSurface,
                         borderRadius: BorderRadius.circular(20),
-                        border:
-                        Border.all(color: context.cardBorder, width: 1),
+                        border: Border.all(
+                            color: context.cardBorder, width: 1),
                         boxShadow: [
                           BoxShadow(
                               color: NexColors.indigo.withValues(alpha: 0.06),
@@ -618,7 +669,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
 
-                  // ── PINNED ───────────────────────────────────────────────
+                  // ── PINNED ───────────────────────────────────────────
                   if (!_loadingUser &&
                       (_user?.pinnedQuote.isNotEmpty ?? false)) ...[
                     _sectionHeader('PINNED'),
@@ -679,7 +730,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
 
-                  // ── STATS ────────────────────────────────────────────────
+                  // ── STATS ────────────────────────────────────────────
                   _sectionHeader('STATS'),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -708,7 +759,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
 
-                  // ── MEDIA ────────────────────────────────────────────────
+                  // ── MEDIA ────────────────────────────────────────────
                   _sectionHeader('MEDIA', action: 'See all'),
                   SizedBox(
                     height: 90,
@@ -726,7 +777,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
 
-                  // ── ACTIVE DEVICES ────────────────────────────────────────
+                  // ── ACTIVE DEVICES ────────────────────────────────────
                   _sectionHeader('ACTIVE DEVICES'),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -754,7 +805,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
 
-                  // ── LOGOUT ───────────────────────────────────────────────
+                  // ── LOGOUT ───────────────────────────────────────────
                   const SizedBox(height: 24),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -770,12 +821,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               : context.cardSurface,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                              color: Colors.redAccent.withValues(alpha: 0.35),
+                              color:
+                              Colors.redAccent.withValues(alpha: 0.35),
                               width: 1),
                           boxShadow: [
                             BoxShadow(
-                                color:
-                                Colors.redAccent.withValues(alpha: 0.06),
+                                color: Colors.redAccent
+                                    .withValues(alpha: 0.06),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4))
                           ],
