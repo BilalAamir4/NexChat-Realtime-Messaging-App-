@@ -21,7 +21,7 @@ class _OrbData {
 }
 
 // ─────────────────────────────────────────────
-//  Orb Painter — brand colors are theme-invariant
+//  Orb Painter
 // ─────────────────────────────────────────────
 class _OrbPainter extends CustomPainter {
   final List<_OrbData> orbs;
@@ -164,7 +164,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   style: TextStyle(fontSize: 14, color: context.textMuted)),
               const SizedBox(height: 24),
 
-              // Phone field
               Container(
                 decoration: BoxDecoration(
                   color: isDark ? NexColors.darkSurface : Colors.white,
@@ -387,117 +386,123 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       resizeToAvoidBottomInset: false,
       body: Container(
         decoration: BoxDecoration(gradient: context.pageGradient),
-        child: AnimatedBuilder(
-          animation: _ctrl,
-          builder: (context, _) => Stack(
-            children: [
-              Positioned.fill(
-                child: CustomPaint(painter: _OrbPainter(orbs: _orbs, t: _ctrl.value)),
+        // ── FIX: Stack is no longer inside AnimatedBuilder ──────────────
+        child: Stack(
+          children: [
+            // Only the orb painter rebuilds every frame
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: _ctrl,
+                builder: (context, _) => CustomPaint(
+                  painter: _OrbPainter(orbs: _orbs, t: _ctrl.value),
+                ),
               ),
-              SafeArea(
-                child: Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Form(
-                      key: _formKey,
-                      child: Container(
-                        padding: const EdgeInsets.fromLTRB(28, 36, 28, 32),
-                        decoration: BoxDecoration(
-                          color: context.cardSurface.withOpacity(0.92),
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: context.cardBorder, width: 1.2),
-                          boxShadow: [
-                            BoxShadow(color: NexColors.indigo.withOpacity(0.10), blurRadius: 32, offset: const Offset(0, 12)),
-                            BoxShadow(color: NexColors.violet.withOpacity(0.06), blurRadius: 48, spreadRadius: 4, offset: const Offset(0, 20)),
-                          ],
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Center(child: _logoMark()),
-                            const SizedBox(height: 36),
+            ),
 
-                            _field(
-                              controller: _emailCtrl,
-                              hint: 'Email address',
-                              icon: Icons.email_outlined,
-                              validator: (v) {
-                                if (v == null || v.isEmpty) return 'Please enter your email';
-                                if (!v.contains('@')) return 'Please enter a valid email';
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 14),
+            // Form is completely outside the animation loop
+            SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Form(
+                    key: _formKey,
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(28, 36, 28, 32),
+                      decoration: BoxDecoration(
+                        color: context.cardSurface.withOpacity(0.92),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(color: context.cardBorder, width: 1.2),
+                        boxShadow: [
+                          BoxShadow(color: NexColors.indigo.withOpacity(0.10), blurRadius: 32, offset: const Offset(0, 12)),
+                          BoxShadow(color: NexColors.violet.withOpacity(0.06), blurRadius: 48, spreadRadius: 4, offset: const Offset(0, 20)),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Center(child: _logoMark()),
+                          const SizedBox(height: 36),
 
-                            _field(
-                              controller: _passCtrl,
-                              hint: 'Password',
-                              icon: Icons.lock_outline_rounded,
-                              obscure: _obscure,
-                              validator: (v) {
-                                if (v == null || v.isEmpty) return 'Please enter your password';
-                                if (v.length < 6) return 'Password must be at least 6 characters';
-                                return null;
-                              },
-                              suffix: GestureDetector(
-                                onTap: () => setState(() => _obscure = !_obscure),
-                                child: Icon(
-                                  _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                                  color: context.textMuted, size: 20,
-                                ),
+                          _field(
+                            controller: _emailCtrl,
+                            hint: 'Email address',
+                            icon: Icons.email_outlined,
+                            validator: (v) {
+                              if (v == null || v.isEmpty) return 'Please enter your email';
+                              if (!v.contains('@')) return 'Please enter a valid email';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 14),
+
+                          _field(
+                            controller: _passCtrl,
+                            hint: 'Password',
+                            icon: Icons.lock_outline_rounded,
+                            obscure: _obscure,
+                            validator: (v) {
+                              if (v == null || v.isEmpty) return 'Please enter your password';
+                              if (v.length < 6) return 'Password must be at least 6 characters';
+                              return null;
+                            },
+                            suffix: GestureDetector(
+                              onTap: () => setState(() => _obscure = !_obscure),
+                              child: Icon(
+                                _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                color: context.textMuted, size: 20,
                               ),
                             ),
+                          ),
 
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: () {},
-                                style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4)),
-                                child: const Text('Forgot password?',
-                                    style: TextStyle(color: NexColors.indigo, fontSize: 13, fontWeight: FontWeight.w500)),
-                              ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () {},
+                              style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4)),
+                              child: const Text('Forgot password?',
+                                  style: TextStyle(color: NexColors.indigo, fontSize: 13, fontWeight: FontWeight.w500)),
                             ),
-                            const SizedBox(height: 8),
+                          ),
+                          const SizedBox(height: 8),
 
-                            _loginButton(authState.isLoading),
-                            const SizedBox(height: 24),
+                          _loginButton(authState.isLoading),
+                          const SizedBox(height: 24),
 
-                            Row(children: [
-                              Expanded(child: Divider(color: context.cardBorder, thickness: 1)),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                child: Text('or', style: TextStyle(color: context.textMuted, fontSize: 13)),
-                              ),
-                              Expanded(child: Divider(color: context.cardBorder, thickness: 1)),
-                            ]),
-                            const SizedBox(height: 20),
-
-                            GestureDetector(
-                              onTap: () => Navigator.pushNamed(context, AppRoutes.register),
-                              child: Container(
-                                height: 52,
-                                decoration: BoxDecoration(
-                                  color: Colors.transparent,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: context.cardBorder, width: 1.2),
-                                ),
-                                alignment: Alignment.center,
-                                child: const Text('Create account',
-                                    style: TextStyle(color: NexColors.indigo, fontSize: 15,
-                                        fontWeight: FontWeight.w600, letterSpacing: 0.2)),
-                              ),
+                          Row(children: [
+                            Expanded(child: Divider(color: context.cardBorder, thickness: 1)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('or', style: TextStyle(color: context.textMuted, fontSize: 13)),
                             ),
-                          ],
-                        ),
+                            Expanded(child: Divider(color: context.cardBorder, thickness: 1)),
+                          ]),
+                          const SizedBox(height: 20),
+
+                          GestureDetector(
+                            onTap: () => Navigator.pushNamed(context, AppRoutes.register),
+                            child: Container(
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: Colors.transparent,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: context.cardBorder, width: 1.2),
+                              ),
+                              alignment: Alignment.center,
+                              child: const Text('Create account',
+                                  style: TextStyle(color: NexColors.indigo, fontSize: 15,
+                                      fontWeight: FontWeight.w600, letterSpacing: 0.2)),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

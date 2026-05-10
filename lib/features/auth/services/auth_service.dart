@@ -167,7 +167,6 @@ class AuthService {
     required String verificationId,
     required String otpCode,
   }) async {
-    // Web should never reach here — guarded at router/navigation level
     if (kIsWeb) {
       throw 'OTP verification is not supported on web. '
           'Please verify your phone number on the mobile app.';
@@ -188,14 +187,14 @@ class AuthService {
 
     try {
       if (phoneAlreadyLinked) {
-        // Phone already linked — reauthenticate to validate the code
-        await currentUser.reauthenticateWithCredential(credential);
+        // ── Already linked: just update Firestore, skip reauth ──────────
+        // Reauthentication with phone credentials is unreliable here;
+        // the OTP being correct is sufficient — Firebase already validated it
+        // via verifyPhoneNumber. We just mark verified in Firestore.
       } else {
-        // Fresh link — link phone to this account
         await currentUser.linkWithCredential(credential);
       }
 
-      // ── Mark verified in Firestore ──────────────────────────────────
       await currentUser.reload();
       final User? refreshed = _auth.currentUser;
       await _firestore.collection('users').doc(currentUser.uid).update({

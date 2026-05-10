@@ -666,159 +666,164 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
       resizeToAvoidBottomInset: false,
       body: Container(
         decoration: BoxDecoration(gradient: context.pageGradient),
-        child: AnimatedBuilder(
-          animation: _ctrl,
-          builder: (context, _) => Stack(
-            children: [
-              Positioned.fill(
-                child: CustomPaint(painter: _OrbPainter(orbs: _orbs, t: _ctrl.value)),
+        // ── FIX: Stack is no longer inside AnimatedBuilder ──────────────
+        child: Stack(
+          children: [
+            // Only the orb painter rebuilds every frame
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: _ctrl,
+                builder: (context, _) => CustomPaint(
+                  painter: _OrbPainter(orbs: _orbs, t: _ctrl.value),
+                ),
               ),
+            ),
 
-              SafeArea(
-                child: Column(
-                  children: [
-                    // Top bar
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      child: Row(
-                        children: [
-                          if (_step == 0)
-                            GestureDetector(
-                              onTap: () => Navigator.pop(context),
-                              child: Container(
-                                width: 40, height: 40,
-                                decoration: BoxDecoration(
-                                  color: context.cardSurface,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: context.cardBorder, width: 1.2),
-                                ),
-                                child: Icon(Icons.arrow_back_ios_new_rounded,
-                                    color: context.textSecondary, size: 16),
+            // Everything else is outside the animation loop
+            SafeArea(
+              child: Column(
+                children: [
+                  // Top bar
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Row(
+                      children: [
+                        if (_step == 0)
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Container(
+                              width: 40, height: 40,
+                              decoration: BoxDecoration(
+                                color: context.cardSurface,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: context.cardBorder, width: 1.2),
                               ),
-                            )
-                          else
-                            const SizedBox(width: 40),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                            decoration: BoxDecoration(
-                              color: context.cardSurface,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: context.cardBorder, width: 1.2),
+                              child: Icon(Icons.arrow_back_ios_new_rounded,
+                                  color: context.textSecondary, size: 16),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 18, height: 18,
-                                  decoration: const BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: LinearGradient(colors: [NexColors.indigo, NexColors.violet]),
-                                  ),
-                                  child: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 10),
-                                ),
-                                const SizedBox(width: 6),
-                                Text('NexChat',
-                                    style: TextStyle(color: context.textPrimary,
-                                        fontSize: 13, fontWeight: FontWeight.w700)),
-                              ],
-                            ),
-                          ),
-                          const Spacer(),
+                          )
+                        else
                           const SizedBox(width: 40),
-                        ],
-                      ),
-                    ),
-
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-                        child: Container(
-                          padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                           decoration: BoxDecoration(
-                            color: context.cardSurface.withOpacity(0.92),
-                            borderRadius: BorderRadius.circular(28),
+                            color: context.cardSurface,
+                            borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: context.cardBorder, width: 1.2),
-                            boxShadow: [
-                              BoxShadow(color: NexColors.indigo.withOpacity(0.10),
-                                  blurRadius: 32, offset: const Offset(0, 12)),
-                              BoxShadow(color: NexColors.violet.withOpacity(0.06),
-                                  blurRadius: 48, spreadRadius: 4, offset: const Offset(0, 20)),
-                            ],
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              _StepIndicator(current: _step, total: 3),
-                              const SizedBox(height: 24),
-
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 250),
-                                child: Column(
-                                  key: ValueKey(_step),
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(meta.title,
-                                        style: TextStyle(fontSize: 24,
-                                            fontWeight: FontWeight.w800,
-                                            color: context.textPrimary, letterSpacing: -0.4)),
-                                    const SizedBox(height: 4),
-                                    Text(meta.subtitle,
-                                        style: TextStyle(fontSize: 14, color: context.textMuted)),
-                                  ],
+                              Container(
+                                width: 18, height: 18,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(colors: [NexColors.indigo, NexColors.violet]),
                                 ),
+                                child: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 10),
                               ),
-                              const SizedBox(height: 24),
-
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 300),
-                                transitionBuilder: (child, animation) {
-                                  final offset = Tween<Offset>(
-                                    begin: const Offset(0.08, 0),
-                                    end: Offset.zero,
-                                  ).animate(CurvedAnimation(
-                                      parent: animation, curve: Curves.easeOut));
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: SlideTransition(position: offset, child: child),
-                                  );
-                                },
-                                child: KeyedSubtree(
-                                  key: ValueKey(_step),
-                                  child: switch (_step) {
-                                    0 => _stepIdentity(),
-                                    1 => _stepCredentials(authState.isLoading),
-                                    _ => _stepAvatar(authState.isLoading),
-                                  },
-                                ),
-                              ),
+                              const SizedBox(width: 6),
+                              Text('NexChat',
+                                  style: TextStyle(color: context.textPrimary,
+                                      fontSize: 13, fontWeight: FontWeight.w700)),
                             ],
                           ),
                         ),
-                      ),
+                        const Spacer(),
+                        const SizedBox(width: 40),
+                      ],
                     ),
+                  ),
 
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 20),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text('Already have an account? ',
-                              style: TextStyle(color: context.textMuted, fontSize: 13)),
-                          GestureDetector(
-                            onTap: () => Navigator.pop(context),
-                            child: const Text('Sign in',
-                                style: TextStyle(color: NexColors.indigo, fontSize: 13,
-                                    fontWeight: FontWeight.w700)),
-                          ),
-                        ],
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+                        decoration: BoxDecoration(
+                          color: context.cardSurface.withOpacity(0.92),
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(color: context.cardBorder, width: 1.2),
+                          boxShadow: [
+                            BoxShadow(color: NexColors.indigo.withOpacity(0.10),
+                                blurRadius: 32, offset: const Offset(0, 12)),
+                            BoxShadow(color: NexColors.violet.withOpacity(0.06),
+                                blurRadius: 48, spreadRadius: 4, offset: const Offset(0, 20)),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _StepIndicator(current: _step, total: 3),
+                            const SizedBox(height: 24),
+
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 250),
+                              child: Column(
+                                key: ValueKey(_step),
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(meta.title,
+                                      style: TextStyle(fontSize: 24,
+                                          fontWeight: FontWeight.w800,
+                                          color: context.textPrimary, letterSpacing: -0.4)),
+                                  const SizedBox(height: 4),
+                                  Text(meta.subtitle,
+                                      style: TextStyle(fontSize: 14, color: context.textMuted)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              transitionBuilder: (child, animation) {
+                                final offset = Tween<Offset>(
+                                  begin: const Offset(0.08, 0),
+                                  end: Offset.zero,
+                                ).animate(CurvedAnimation(
+                                    parent: animation, curve: Curves.easeOut));
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: SlideTransition(position: offset, child: child),
+                                );
+                              },
+                              child: KeyedSubtree(
+                                key: ValueKey(_step),
+                                child: switch (_step) {
+                                  0 => _stepIdentity(),
+                                  1 => _stepCredentials(authState.isLoading),
+                                  _ => _stepAvatar(authState.isLoading),
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Already have an account? ',
+                            style: TextStyle(color: context.textMuted, fontSize: 13)),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: const Text('Sign in',
+                              style: TextStyle(color: NexColors.indigo, fontSize: 13,
+                                  fontWeight: FontWeight.w700)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

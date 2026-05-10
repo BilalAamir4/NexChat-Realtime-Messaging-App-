@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // ── Data model ────────────────────────────────────────────────────────────────
@@ -9,7 +9,6 @@ class UserPresence {
 
   const UserPresence({required this.isOnline, this.lastSeen});
 
-  /// Returns a human-readable "last seen" string, e.g. "last seen 3 min ago".
   String get lastSeenLabel {
     if (isOnline) return 'Online';
     if (lastSeen == null) return 'Offline';
@@ -32,21 +31,20 @@ class UserPresence {
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
-/// Stream the presence of any user by their UID.
-/// Usage:  ref.watch(presenceProvider('uid_here'))
 final presenceProvider =
 StreamProvider.family<UserPresence, String>((ref, uid) {
-  return FirebaseFirestore.instance
-      .collection('users')
-      .doc(uid)
-      .snapshots()
-      .map((snap) {
-    final data = snap.data();
+  return FirebaseDatabase.instance
+      .ref('presence/$uid')
+      .onValue
+      .map((event) {
+    final data = event.snapshot.value as Map<dynamic, dynamic>?;
     if (data == null) return const UserPresence(isOnline: false);
 
     final isOnline = data['isOnline'] as bool? ?? false;
-    final ts = data['lastSeen'];
-    final lastSeen = ts is Timestamp ? ts.toDate() : null;
+    final lastSeenMs = data['lastSeen'] as int?;
+    final lastSeen = lastSeenMs != null
+        ? DateTime.fromMillisecondsSinceEpoch(lastSeenMs)
+        : null;
 
     return UserPresence(isOnline: isOnline, lastSeen: lastSeen);
   });

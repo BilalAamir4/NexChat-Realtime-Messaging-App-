@@ -140,10 +140,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         replyToType: _replyingTo?.type.name,
       );
       _cancelReply();
-    } catch (_) {
+    } catch (e, stackTrace) {
+      debugPrint('IMAGE UPLOAD ERROR: $e');
+      debugPrint('STACK TRACE: $stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to send image')),
+          SnackBar(content: Text('Error: $e')),
         );
       }
     } finally {

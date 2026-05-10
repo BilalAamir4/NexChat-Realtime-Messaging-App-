@@ -1,18 +1,22 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../widgets/edit_profile_sheet.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../presence/presence_service.dart';
+import '../../presence/presence_provider.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isLoggingOut = false;
   UserModel? _user;
   bool _loadingUser = true;
@@ -59,9 +63,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  // Uses PresenceService so isOnline is set to false before signing out
   Future<void> _handleLogout() async {
     setState(() => _isLoggingOut = true);
-    await FirebaseAuth.instance.signOut();
+    await PresenceService.instance.signOut();
     if (mounted) {
       Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
     }
@@ -99,7 +104,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // ─── Open edit sheet ─────────────────────────────────────────────────────
+  // ─── Open edit sheet ──────────────────────────────────────────────────────
 
   Future<void> _openEditSheet() async {
     if (_user == null) return;
@@ -250,8 +255,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: context.cardBorder, width: 1),
             ),
-            child:
-            Icon(_deviceIcon(device.type), color: NexColors.indigo, size: 22),
+            child: Icon(_deviceIcon(device.type),
+                color: NexColors.indigo, size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -356,6 +361,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // ─── Online badge — reads from RTDB via presenceProvider ─────────────────
+
+  Widget _onlineBadge() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return const SizedBox.shrink();
+
+    final presenceAsync = ref.watch(presenceProvider(uid));
+
+    return presenceAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (presence) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: context.receivedBubbleBg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: context.cardBorder, width: 0.8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: presence.isOnline
+                    ? const Color(0xFF22C55E)
+                    : context.textMuted,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              presence.lastSeenLabel,
+              style: TextStyle(
+                  color: context.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ─── Build ────────────────────────────────────────────────────────────────
 
   @override
@@ -393,7 +443,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 background: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    // Gradient banner
                     Container(
                       height: 170,
                       decoration: const BoxDecoration(
@@ -428,7 +477,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ),
                     ),
-                    // Avatar — tappable with camera badge
                     Positioned(
                       bottom: 0,
                       left: 0,
@@ -440,7 +488,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: Stack(
                               clipBehavior: Clip.none,
                               children: [
-                                // Avatar circle
                                 Container(
                                   width: 88,
                                   height: 88,
@@ -480,7 +527,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       : const Icon(Icons.person,
                                       color: Colors.white, size: 44),
                                 ),
-                                // Camera badge
                                 Positioned(
                                   bottom: 0,
                                   right: -2,
@@ -506,10 +552,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             offset: const Offset(0, 2)),
                                       ],
                                     ),
-                                    child: const Icon(
-                                        Icons.camera_alt_rounded,
-                                        color: Colors.white,
-                                        size: 14),
+                                    child: const Icon(Icons.camera_alt_rounded,
+                                        color: Colors.white, size: 14),
                                   ),
                                 ),
                               ],
@@ -530,7 +574,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   const SizedBox(height: 14),
 
-                  // Name / username / online badge
                   if (_loadingUser)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 8),
@@ -551,41 +594,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             fontSize: 14,
                             fontWeight: FontWeight.w500)),
                     const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: context.receivedBubbleBg,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: context.cardBorder, width: 0.8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                              width: 7,
-                              height: 7,
-                              decoration: BoxDecoration(
-                                  color: (_user?.isOnline ?? false)
-                                      ? const Color(0xFF22C55E)
-                                      : context.textMuted,
-                                  shape: BoxShape.circle)),
-                          const SizedBox(width: 6),
-                          Text(
-                              (_user?.isOnline ?? false) ? 'Online' : 'Offline',
-                              style: TextStyle(
-                                  color: context.textSecondary,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
+
+                    // ← Now reads from RTDB via presenceProvider
+                    _onlineBadge(),
                   ],
 
                   const SizedBox(height: 20),
 
-                  // Action buttons
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -607,7 +622,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
 
-                  // ── ABOUT ────────────────────────────────────────────
                   _sectionHeader('ABOUT'),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -617,8 +631,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       decoration: BoxDecoration(
                         color: context.cardSurface,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: context.cardBorder, width: 1),
+                        border:
+                        Border.all(color: context.cardBorder, width: 1),
                         boxShadow: [
                           BoxShadow(
                               color: NexColors.indigo.withValues(alpha: 0.06),
@@ -634,10 +648,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             height: 60,
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                  colors: [
-                                    NexColors.indigo,
-                                    NexColors.violet
-                                  ],
+                                  colors: [NexColors.indigo, NexColors.violet],
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter),
                               borderRadius: BorderRadius.circular(4),
@@ -669,7 +680,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
 
-                  // ── PINNED ───────────────────────────────────────────
                   if (!_loadingUser &&
                       (_user?.pinnedQuote.isNotEmpty ?? false)) ...[
                     _sectionHeader('PINNED'),
@@ -707,10 +717,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     end: Alignment.bottomRight),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Icon(
-                                  Icons.format_quote_rounded,
-                                  color: Colors.white,
-                                  size: 20),
+                              child: const Icon(Icons.format_quote_rounded,
+                                  color: Colors.white, size: 20),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -730,7 +738,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
 
-                  // ── STATS ────────────────────────────────────────────
                   _sectionHeader('STATS'),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -759,7 +766,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
 
-                  // ── MEDIA ────────────────────────────────────────────
                   _sectionHeader('MEDIA', action: 'See all'),
                   SizedBox(
                     height: 90,
@@ -777,7 +783,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
 
-                  // ── ACTIVE DEVICES ────────────────────────────────────
                   _sectionHeader('ACTIVE DEVICES'),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -805,7 +810,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
 
-                  // ── LOGOUT ───────────────────────────────────────────
                   const SizedBox(height: 24),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -813,21 +817,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onTap: _isLoggingOut ? null : _handleLogout,
                       child: Container(
                         width: double.infinity,
-                        padding:
-                        const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                         decoration: BoxDecoration(
                           color: context.isDark
                               ? const Color(0xFF2A1515)
                               : context.cardSurface,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                              color:
-                              Colors.redAccent.withValues(alpha: 0.35),
+                              color: Colors.redAccent.withValues(alpha: 0.35),
                               width: 1),
                           boxShadow: [
                             BoxShadow(
-                                color: Colors.redAccent
-                                    .withValues(alpha: 0.06),
+                                color:
+                                Colors.redAccent.withValues(alpha: 0.06),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4))
                           ],
