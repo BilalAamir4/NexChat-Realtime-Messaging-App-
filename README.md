@@ -88,7 +88,7 @@
 
 1. Clone the repository
 
-git clone https://github.com/your-username/nexchat.git
+git clone [https://github.com/BilalAamir4/NexChat-Realtime-Messaging-App-]
 cd nexchat
 
 2. Install dependencies
