@@ -259,7 +259,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       final data = doc.data();
       final info = {
         'name': data?['displayName'] as String? ?? 'Unknown',
-        'photo': data?['photoURL'] as String? ?? '',
+        'photo': data?['photoUrl'] as String? ?? '',
       };
       _senderCache[uid] = info;
       return info;

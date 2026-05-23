@@ -75,7 +75,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen>
       final data = doc.data();
       return {
         'name': data?['displayName'] as String? ?? 'Unknown',
-        'photo': data?['photoURL'] as String? ?? '',
+        'photo': data?['photoUrl'] as String? ?? '',
       };
     } catch (_) {
       return {'name': 'Unknown', 'photo': ''};

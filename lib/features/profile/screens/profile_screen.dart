@@ -66,7 +66,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // Uses PresenceService so isOnline is set to false before signing out
   Future<void> _handleLogout() async {
     setState(() => _isLoggingOut = true);
-    await PresenceService.instance.signOut();
+    try {
+      await PresenceService.instance.signOut().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {},
+      );
+    } catch (_) {}
+
     if (mounted) {
       Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
     }

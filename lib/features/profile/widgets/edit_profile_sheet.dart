@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart'; // ← ADDED
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/models/user_model.dart';
@@ -37,8 +38,8 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   bool _saving = false;
   String? _error;
 
-  // Photo state
-  File? _pickedImage;
+  // Photo state — changed from File? to XFile? to support web
+  XFile? _pickedImage; // ← CHANGED
   bool _uploadingPhoto = false;
 
   @override
@@ -69,7 +70,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
         maxHeight: 800,
       );
       if (picked != null && mounted) {
-        setState(() => _pickedImage = File(picked.path));
+        setState(() => _pickedImage = picked); // ← CHANGED: assign XFile directly
       }
     } catch (_) {
       if (mounted) {
@@ -225,12 +226,20 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     try {
       final ref = FirebaseStorage.instance
           .ref()
-          .child('profile_photos')
+          .child('profile_pictures')
           .child('$uid.jpg');
-      await ref.putFile(
-        _pickedImage!,
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
+
+      // ← CHANGED: use putData on web, putFile on mobile
+      if (kIsWeb) {
+        final bytes = await _pickedImage!.readAsBytes();
+        await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+      } else {
+        await ref.putFile(
+          File(_pickedImage!.path),
+          SettableMetadata(contentType: 'image/jpeg'),
+        );
+      }
+
       return await ref.getDownloadURL();
     } catch (_) {
       return null;
@@ -482,9 +491,22 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                       ],
                     ),
                     child: ClipOval(
+                      // ← CHANGED: web uses Image.network with blob URL,
+                      //   mobile uses Image.file
                       child: _pickedImage != null
-                          ? Image.file(_pickedImage!,
-                          width: 82, height: 82, fit: BoxFit.cover)
+                          ? kIsWeb
+                          ? Image.network(
+                        _pickedImage!.path,
+                        width: 82,
+                        height: 82,
+                        fit: BoxFit.cover,
+                      )
+                          : Image.file(
+                        File(_pickedImage!.path),
+                        width: 82,
+                        height: 82,
+                        fit: BoxFit.cover,
+                      )
                           : hasExistingPhoto
                           ? Image.network(currentPhotoUrl,
                           width: 82,

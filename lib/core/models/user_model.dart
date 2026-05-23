@@ -1,5 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+Timestamp _toTimestamp(dynamic value) {
+  if (value is Timestamp) return value;
+  if (value is int) return Timestamp.fromMillisecondsSinceEpoch(value);
+  if (value is String) return Timestamp.fromDate(DateTime.parse(value));
+  return Timestamp.now();
+}
+
 class DeviceInfo {
   final String id;
   final String name;
@@ -20,7 +27,7 @@ class DeviceInfo {
       id: map['id'] ?? '',
       name: map['name'] ?? 'Unknown Device',
       type: map['type'] ?? 'phone',
-      lastActive: (map['lastActive'] as Timestamp).toDate(),
+      lastActive: _toTimestamp(map['lastActive']).toDate(),
       isCurrentDevice: map['isCurrentDevice'] ?? false,
     );
   }
@@ -72,8 +79,8 @@ class UserModel {
       username: map['username'] ?? '',
       photoUrl: map['photoUrl'] ?? '',
       isOnline: map['isOnline'] ?? false,
-      lastSeen: (map['lastSeen'] as Timestamp).toDate(),
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
+      lastSeen: _toTimestamp(map['lastSeen']).toDate(),
+      createdAt: _toTimestamp(map['createdAt']).toDate(),
       bio: map['bio'] ?? '',
       pinnedQuote: map['pinnedQuote'] ?? '',
       mediaUrls: List<String>.from(map['mediaUrls'] ?? []),
